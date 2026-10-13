@@ -28,13 +28,22 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 
 ## Build
 
+**Apple Silicon / arm64 Linux (native, fastest):**
 ```sh
-docker build --platform linux/amd64 -t yupei-build .
-docker run --rm -it --privileged --platform linux/amd64 \
-    -v "$PWD:/port" -v yupei-work:/port/work yupei-build \
+./docker/build-image.sh      # official Arch Linux ARM tarball, clang 18
+docker run --rm -it --privileged --platform linux/arm64 \
+    -v "$PWD:/port" -v yupei-work:/port/work yupei-build-arm64 \
     ./build.sh all /port/yupei_global_images_OS3.x.x.x.WPZMIXM.tgz
-# DESKTOP=sway ./build.sh rootfs   to add sway (software rendering)
 ```
+
+**x86_64 Linux** (uses Google's pinned clang r510928):
+```sh
+docker build -t yupei-build .
+docker run --rm -it --privileged -v "$PWD:/port" -v yupei-work:/port/work yupei-build \
+    ./build.sh all /port/yupei_global_images_OS3.x.x.x.WPZMIXM.tgz
+```
+`DESKTOP=sway` adds sway (software rendering). If clang warns where Google's
+toolchain did not, rerun with `-e KERNEL_NO_WERROR=1`.
 
 Steps: extract stock vendor modules and firmware, build the kernel, then **verify
 every stock module's symbol CRCs against the new kernel** (the build stops on a

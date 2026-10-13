@@ -1,0 +1,21 @@
+# Native arm64 build environment (Apple Silicon, arm64 Linux). No emulation:
+# the kernel builds with clang 18 (the version Google's r510928 toolchain is
+# based on) and the rootfs chroot runs natively. Built by ./docker/build-image.sh.
+FROM scratch
+ADD alarm-base.tar.gz /
+
+# Containers have no real mounts or Landlock, which pacman's checks trip over.
+RUN sed -i -e 's/^CheckSpace/#CheckSpace/' -e 's/^#\?DisableSandbox.*//' /etc/pacman.conf \
+    && sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf \
+    && pacman-key --init && pacman-key --populate archlinuxarm
+# The tarball's kernel and firmware are useless in a container.
+RUN pacman -Rdd --noconfirm linux-aarch64 linux-firmware 2>/dev/null || true
+RUN pacman -Syu --noconfirm --needed \
+        base-devel bc cpio git python openssl perl flex bison libelf pahole \
+        clang18 lld18 llvm18 kmod \
+        android-tools erofs-utils e2fsprogs dosfstools mtools \
+        arch-install-scripts file wget curl zstd lz4 libarchive \
+    && pacman -Scc --noconfirm
+
+ENV LLVM_DIR=/usr/lib/llvm18/bin
+WORKDIR /port

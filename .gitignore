@@ -1,3 +1,4 @@
 work/
 out/
 __pycache__/
+docker/alarm-base.tar.gz*

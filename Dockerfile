@@ -8,8 +8,7 @@
 # xt_mark.h and the rootfs has case-colliding files, which a case-insensitive
 # APFS bind mount silently merges. Only out/ (the images) lands on the host.
 #
-# On Apple Silicon this image runs under x86_64 emulation: the kernel build is
-# slow but works.
+# On Apple Silicon use docker/Dockerfile.arm64 instead (native, much faster).
 # --privileged is only needed for the rootfs step (loop mounts + binfmt chroot).
 FROM archlinux:latest
 

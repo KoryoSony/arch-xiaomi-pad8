@@ -30,7 +30,9 @@ for l in include/linux/mca arch/arm64/boot/dts/vendor Documentation/devicetree/b
     if [ -L "$SRC/$l" ] && [ ! -e "$SRC/$l" ]; then rm "$SRC/$l"; mkdir -p "$SRC/$l"; fi
 done
 
-# Toolchain: Google's pinned clang on x86_64 hosts, distro clang elsewhere.
+# Toolchain: Google's pinned clang on x86_64 hosts. Elsewhere there is no
+# prebuilt, so use the distro's clang 18 (LLVM_DIR, set by the arm64 image),
+# the same major version r510928 is based on.
 if [ "$(uname -m)" = x86_64 ] && [ "${USE_SYSTEM_CLANG:-0}" != 1 ]; then
     TC=$WORK/clang-$CLANG_VERSION
     if [ ! -x "$TC/bin/clang" ]; then
@@ -38,9 +40,10 @@ if [ "$(uname -m)" = x86_64 ] && [ "${USE_SYSTEM_CLANG:-0}" != 1 ]; then
         curl -fL "$CLANG_URL" | tar -xz -C "$TC"
     fi
     export PATH=$TC/bin:$PATH
-else
-    echo "warning: using system clang ($(clang --version | head -1)); KMI is still checked by check-kmi.py" >&2
+elif [ -n "${LLVM_DIR:-}" ]; then
+    export PATH=$LLVM_DIR:$PATH
 fi
+echo "using $(command -v clang): $(clang --version | head -1)"
 
 MAKE=(make -C "$SRC" O="$KOUT" ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)")
 
@@ -53,6 +56,13 @@ while IFS= read -r line; do
     case $line in CONFIG_*=*) ;; *) continue ;; esac
     grep -qxF "$line" "$KOUT/.config" || { echo "fragment option not applied: $line" >&2; exit 1; }
 done < "$TOP/kernel/yupei-linux.fragment"
+
+# Escape hatch if a newer compiler warns where clang 18 did not; warnings do
+# not affect the KMI, which check-kmi.py verifies regardless.
+if [ "${KERNEL_NO_WERROR:-0}" = 1 ]; then
+    "$SRC/scripts/config" --file "$KOUT/.config" --disable WERROR
+    "${MAKE[@]}" olddefconfig
+fi
 
 "${MAKE[@]}" Image modules
 
