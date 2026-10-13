@@ -1,0 +1,19 @@
+#!/bin/sh
+# Wi-Fi (WCN7750 on the WPSS coprocessor), in Android's order: icnss boots
+# WPSS (init.vendor.wlan.rc), then the HAL loads qca_cld3 and writes "ON" to
+# /dev/wlan. Needs /vendor/etc/wifi (driver ini) and persist (MAC address:
+# this Wi-Fi-only tablet has no modem DMS service to provide it).
+I=/sys/kernel/icnss
+[ -e $I/wpss_boot ] || { echo "icnss2 not loaded"; exit 1; }
+echo 1000 > $I/wlan_en_delay
+echo 1 > $I/wpss_boot
+for i in $(seq 1 60); do
+    dmesg | grep -q "WLAN FW Initialization done" && break
+    sleep 0.5
+done
+modprobe qca_cld3_wcn7750 || exit 1
+for i in $(seq 1 20); do [ -e /dev/wlan ] && break; sleep 0.25; done
+printf ON > /dev/wlan
+for i in $(seq 1 40); do ip link show wlan0 >/dev/null 2>&1 && { echo "wlan0 up"; exit 0; }; sleep 0.5; done
+echo "wlan0 did not appear"
+exit 1

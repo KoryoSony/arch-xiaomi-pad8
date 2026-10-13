@@ -1,0 +1,13 @@
+[Unit]
+Description=Start Wi-Fi (WPSS + qca_cld3 WCN7750)
+After=yupei-firmware.service systemd-modules-load.service
+Wants=yupei-firmware.service
+Before=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/yupei/wifi-up
+
+[Install]
+WantedBy=multi-user.target

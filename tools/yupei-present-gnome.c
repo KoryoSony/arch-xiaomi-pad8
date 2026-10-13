@@ -31,6 +31,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #define U64(p) ((uint64_t)(uintptr_t)(p))
@@ -112,6 +113,15 @@ static void kms_init(void)
 		for (uint32_t m = 0; m < c.count_modes; m++)
 			if (modes[m].type & DRM_MODE_TYPE_PREFERRED)
 				mode = modes[m];
+		// Refresh rate: YUPEI_REFRESH (Hz) if the panel has that mode at the
+		// preferred size, otherwise the preferred mode (120 Hz on yupei).
+		const char *hz = getenv("YUPEI_REFRESH");
+		for (uint32_t m = 0; hz && m < c.count_modes; m++)
+			if (modes[m].hdisplay == mode.hdisplay && modes[m].vdisplay == mode.vdisplay &&
+			    modes[m].vrefresh == (uint32_t)atoi(hz)) {
+				mode = modes[m];
+				break;
+			}
 		conn_id = conns[i];
 		enc_id = e[0];
 	}
@@ -554,6 +564,20 @@ static void on_process(void *d)
 		for (uint32_t y = 0; y < h; y++)
 			memcpy(dst->map + (size_t)y * dst->pitch, src + (size_t)y * stride, w * 4);
 		kms_show(front ^ 1);
+		// Frames shown per second, logged every 10 s.
+		static unsigned shown;
+		static struct timespec t0;
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		if (!t0.tv_sec)
+			t0 = now;
+		shown++;
+		double el = (now.tv_sec - t0.tv_sec) + (now.tv_nsec - t0.tv_nsec) / 1e9;
+		if (el >= 10) {
+			fprintf(stderr, "yupei-present-gnome: %.1f fps\n", shown / el);
+			shown = 0;
+			t0 = now;
+		}
 	}
 	pw_stream_queue_buffer(stream, b);
 }
@@ -590,6 +614,7 @@ static void *glib_thread(void *arg)
 int main(int argc, char **argv)
 {
 	kms_init();
+	fprintf(stderr, "yupei-present-gnome: panel mode %s %ux%u@%u\n", mode.name, mode.hdisplay, mode.vdisplay, mode.vrefresh);
 	kms_show(0);
 	gnome_init();
 	pthread_t th;
@@ -623,9 +648,9 @@ int main(int argc, char **argv)
 		SPA_FORMAT_VIDEO_format, SPA_POD_CHOICE_ENUM_Id(3, SPA_VIDEO_FORMAT_BGRx,
 							       SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_BGRA),
 		SPA_FORMAT_VIDEO_size, SPA_POD_Rectangle(&SPA_RECTANGLE(mode.hdisplay, mode.vdisplay)),
-		SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(&SPA_FRACTION(60, 1),
+		SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(&SPA_FRACTION(mode.vrefresh, 1),
 									  &SPA_FRACTION(0, 1),
-									  &SPA_FRACTION(120, 1)));
+									  &SPA_FRACTION(240, 1)));
 	if (pw_stream_connect(stream, PW_DIRECTION_INPUT, PW_ID_ANY,
 			      PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS, params, 1) < 0)
 		die("pw_stream_connect");

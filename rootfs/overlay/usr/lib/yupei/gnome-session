@@ -2,7 +2,10 @@
 # GNOME Shell (headless) on the yupei panel via yupei-present-gnome. Runs in
 # the foreground under yupei-desktop.service (as root, no login, for now).
 # Software rendering until the GPU works.
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
+# Not /run/user/0: systemd's user-runtime-dir@0 empties that whenever a root
+# login session (e.g. SSH) ends, deleting GNOME's Wayland socket so that new
+# apps fail with "Failed to open display".
+export XDG_RUNTIME_DIR=/run/yupei-desktop
 mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 
 # Hand the display over from the boot log.
@@ -14,6 +17,8 @@ pkill -x yupei-bootlog && sleep 0.5
 # was masked (SVE, see fix-cpuinfo): use a cache tied to this setup.
 export MESA_SHADER_CACHE_DIR=/var/cache/yupei-mesa
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+# Panel refresh: 30/48/50/60/90/120/144 Hz modes exist at 3200x2136.
+export YUPEI_REFRESH=${YUPEI_REFRESH:-144}
 # GPU: Mesa built by mesa/build-mesa.sh (Turnip on KGSL + Zink, Adreno 825)
 # in /opt/mesa-yupei. `touch /etc/yupei/no-gpu` falls back to llvmpipe.
 M=/opt/mesa-yupei
@@ -45,5 +50,5 @@ exec dbus-run-session -- sh -c '
           pw-link gnome-shell:output_1 yupei-present-gnome:input_1 >/dev/null 2>&1
           sleep 2
       done ) &
-    exec gnome-shell --headless --virtual-monitor 3200x2136 --no-x11
+    exec gnome-shell --headless --virtual-monitor 3200x2136@$YUPEI_REFRESH --no-x11
 '

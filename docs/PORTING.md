@@ -157,3 +157,15 @@ These are the things that broke the first boots of yupei, in order:
     gnome-session exports the Mesa paths and MESA_LOADER_DRIVER_OVERRIDE=zink;
     mutter then creates its GBM renderer on renderD128 through Zink.
     `touch /etc/yupei/no-gpu` falls back to llvmpipe.
+15. **Wi-Fi**: as in Android's init.vendor.wlan.rc, `icnss2` must boot WPSS
+    (`/sys/kernel/icnss/wlan_en_delay` 1000, `wpss_boot` 1), not remoteproc
+    directly; then `qca_cld3_wcn7750` + `printf ON > /dev/wlan`. The driver
+    probe fails ("DMS QMI connection not established") unless it finds the
+    MAC in wlan/qca_cld/wcn7750/wlan_mac.bin -> /mnt/vendor/persist/wlan/
+    (this Wi-Fi-only tablet has no modem DMS), and needs
+    /vendor/etc/wifi/wcn7750/WCNSS_qcom_cfg.ini. persist is mounted read-only.
+    Do not rmmod the driver after a failed probe: that crashed the kernel.
+16. **Session robustness**: GNOME's XDG_RUNTIME_DIR is /run/yupei-desktop;
+    /run/user/0 is emptied by user-runtime-dir@0 whenever a root login ends,
+    which removed the Wayland socket ("Failed to open display" for new apps).
+    upower needs `PrivateUsers=no` (no user namespaces on GKI).

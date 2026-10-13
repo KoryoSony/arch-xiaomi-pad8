@@ -52,7 +52,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-desktop yupei-touchd
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-desktop yupei-touchd yupei-wifi
     dconf update 2>/dev/null || true
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target serial-getty@hvc0.service
     pacman -Scc --noconfirm
@@ -93,7 +93,9 @@ cp -a "$STOCK/vendor/firmware/." "$ROOTFS/usr/lib/firmware/"
 # odm firmware: the touch controller keeps its firmware in RAM and the driver
 # reloads novatek_nt36532_yupei_fw_*.bin from here on every display resume.
 cp -a "$STOCK/odm/firmware/." "$ROOTFS/usr/lib/firmware/"
-mkdir -p "$ROOTFS"/vendor/{firmware_mnt,dsp,bt_firmware}
+mkdir -p "$ROOTFS"/vendor/{firmware_mnt,dsp,bt_firmware,etc} "$ROOTFS/mnt/vendor/persist"
+# Wi-Fi driver config: firmware/wlan/qca_cld/*/WCNSS_qcom_cfg.ini links here.
+cp -a "$STOCK/vendor/etc/wifi" "$ROOTFS/vendor/etc/"
 
 # Pack as a sparse ext4 image for "fastboot flash userdata".
 raw=$WORK/rootfs.img

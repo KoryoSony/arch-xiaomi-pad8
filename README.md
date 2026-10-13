@@ -19,7 +19,8 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 | Hall sensor, keys | ✅ Input devices present |
 | Display (downstream `msm_drm`, DSI 3200x2136@120) | ✅ sway (`yupei-present`) or GNOME 51 (`yupei-present-gnome`), CPU rendering |
 | GPU (Adreno 825, KGSL) | ✅ Mesa Turnip (KGSL) + Zink, OpenGL 4.6 / GLES 3.2 / Vulkan 1.4, GNOME renders on it |
-| Wi-Fi (WCN7750, `wpss` remoteproc) / Bluetooth | ❌ Not started yet |
+| Wi-Fi (WCN7750 on WPSS, qca_cld3) | ✅ `yupei-wifi.service`, NetworkManager |
+| Bluetooth | ❌ Not started yet |
 | Audio, camera, suspend | ❌ Not supported |
 
 Hard-won notes for this device are in [docs/PORTING.md](docs/PORTING.md#lessons-from-bring-up).
