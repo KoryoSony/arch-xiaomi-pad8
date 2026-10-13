@@ -5,8 +5,7 @@
 # Not /run/user/0: systemd's user-runtime-dir@0 empties that whenever a root
 # login session (e.g. SSH) ends, deleting GNOME's Wayland socket so that new
 # apps fail with "Failed to open display".
-export XDG_RUNTIME_DIR=/run/yupei-desktop
-mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_RUNTIME_DIR=/run/yupei-desktop   # RuntimeDirectory= of the service
 
 # Hand the display over from the boot log.
 pkill -x yupei-bootlog && sleep 0.5
@@ -15,8 +14,12 @@ pkill -x yupei-bootlog && sleep 0.5
 # Xwayland from GNOME's own main loop and deadlocks it.
 # Mesa's shader cache must not keep llvmpipe code built before the CPU type
 # was masked (SVE, see fix-cpuinfo): use a cache tied to this setup.
-export MESA_SHADER_CACHE_DIR=/var/cache/yupei-mesa
+export MESA_SHADER_CACHE_DIR=$HOME/.cache/yupei-mesa
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+# GNOME's image loader (glycin) sandboxes its loaders with bubblewrap, which
+# needs user namespaces (absent on GKI); as a normal user it then loads no
+# images at all, so no icons. Run the loaders unsandboxed instead.
+export GLYCIN_DISABLE_SANDBOX=1
 # Panel refresh: 30/48/50/60/90/120/144 Hz modes exist at 3200x2136.
 export YUPEI_REFRESH=${YUPEI_REFRESH:-144}
 # GPU: Mesa built by mesa/build-mesa.sh (Turnip on KGSL + Zink, Adreno 825)
@@ -60,7 +63,7 @@ exec dbus-run-session -- sh -c '
     # master; it waits for GNOME on the bus, and exits if the cast is stopped
     # ("Stop" in the screen-sharing menu), so keep restarting it.
     ( while true; do
-          yupei-present-gnome >> /var/log/yupei-present-gnome.log 2>&1
+          yupei-present-gnome
           sleep 1
       done ) &
     # WirePlumber does not link the video capture stream to mutter by itself

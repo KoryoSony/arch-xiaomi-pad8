@@ -1,0 +1,12 @@
+#
+# This file is parsed by pam_env module
+#
+# Syntax: simple "KEY=VAL" pairs on separate lines
+#
+# Xiaomi Pad 8: OpenGL through Arch's Zink on our Turnip (KGSL) Vulkan driver
+# (/usr/share/vulkan/icd.d/yupei_freedreno_kgsl.aarch64.json): the Adreno 825
+# has no Mesa GL driver on KGSL, and the display device (msm_drm) none at all.
+GALLIUM_DRIVER=zink
+MESA_LOADER_DRIVER_OVERRIDE=zink
+# No user namespaces on this kernel: GNOME's image loader cannot sandbox.
+GLYCIN_DISABLE_SANDBOX=1

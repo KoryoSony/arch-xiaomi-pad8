@@ -1,0 +1,16 @@
+#!/bin/sh
+# Make NAME the user the panel desktop (yupei-desktop.service) runs as:
+# create it if needed, groups for GPU/display/input/audio, no password (the
+# desktop logs in automatically; set one later with `passwd`), sudo without a
+# password for now.
+set -e
+u=${1:?usage: setup-desktop-user NAME}
+id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
+usermod -aG wheel,video,render,input,audio "$u"
+passwd -d "$u" >/dev/null
+printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$u" > /etc/sudoers.d/10-yupei-desktop-user
+chmod 440 /etc/sudoers.d/10-yupei-desktop-user
+mkdir -p /etc/systemd/system/yupei-desktop.service.d
+printf '[Service]\nUser=%s\n' "$u" > /etc/systemd/system/yupei-desktop.service.d/user.conf
+systemctl daemon-reload
+echo "desktop user: $u ($(id "$u"))"

@@ -1,0 +1,4 @@
+# Let the desktop user (group render) use the Adreno GPU through KGSL and the
+# dma-buf heaps Mesa/Turnip allocate from; Android-style defaults are root-only.
+KERNEL=="kgsl-3d0", GROUP="render", MODE="0660"
+SUBSYSTEM=="dma_heap", GROUP="render", MODE="0660"

@@ -16,3 +16,7 @@ scaling-factor=uint32 2
 
 [org/gnome/desktop/a11y/applications]
 screen-keyboard-enabled=true
+
+# Power key is handled by yupei-powerkey (tap = lock, hold = power dialog).
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='nothing'

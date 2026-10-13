@@ -36,6 +36,12 @@ function run(argv) {
     }
 }
 
+// Log out = end this session; yupei-desktop.service (Restart=always) starts a
+// fresh one. Works as the desktop user, unlike restarting the unit.
+function logout() {
+    run(['pkill', '-x', 'gnome-shell']);
+}
+
 function openDialog(type) {
     bus.call('org.gnome.Shell', '/org/gnome/SessionManager/EndSessionDialog',
         'org.gnome.SessionManager.EndSessionDialog', 'Open',
@@ -55,7 +61,7 @@ const impl = {
         if (mode === 0)
             openDialog(DIALOG_LOGOUT);
         else
-            run(['systemctl', 'restart', 'yupei-desktop.service']);
+            logout();
     },
     Shutdown() { openDialog(DIALOG_SHUTDOWN); },
     Reboot() { openDialog(DIALOG_RESTART); },
@@ -74,13 +80,14 @@ exported.export(bus, '/org/gnome/SessionManager');
 const actions = {
     ConfirmedShutdown: ['systemctl', 'poweroff'],
     ConfirmedReboot: ['systemctl', 'reboot'],
-    ConfirmedLogout: ['systemctl', 'restart', 'yupei-desktop.service'],
 };
 for (const [signal, argv] of Object.entries(actions)) {
     bus.signal_subscribe(null, 'org.gnome.SessionManager.EndSessionDialog', signal,
         '/org/gnome/SessionManager/EndSessionDialog', null, Gio.DBusSignalFlags.NONE,
         () => run(argv));
 }
+bus.signal_subscribe(null, 'org.gnome.SessionManager.EndSessionDialog', 'ConfirmedLogout',
+    '/org/gnome/SessionManager/EndSessionDialog', null, Gio.DBusSignalFlags.NONE, () => logout());
 
 Gio.bus_own_name_on_connection(bus, 'org.gnome.SessionManager', Gio.BusNameOwnerFlags.REPLACE,
     () => print('yupei-session-manager: owns org.gnome.SessionManager'),

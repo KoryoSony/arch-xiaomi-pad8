@@ -1,0 +1,8 @@
+#!/bin/sh
+# The SDE display driver exposes two writeback connectors that claim to be
+# connected; compositors then try to light them up as monitors and the whole
+# modeset fails. Force them off (same as video=Virtual-N:d on the cmdline).
+for c in /sys/class/drm/card*-Virtual-*; do
+    [ -w "$c/status" ] && echo off > "$c/status"
+done
+exit 0

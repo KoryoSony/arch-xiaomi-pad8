@@ -1,0 +1,13 @@
+# The GKI kernel has no user namespaces (KMI constraint), so bubblewrap only
+# works setuid root (it then drops privileges). GNOME's image loader (glycin)
+# needs it: without it, a non-root GNOME session shows no icons.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = bubblewrap
+
+[Action]
+Description = Making bubblewrap setuid (no user namespaces on this kernel)...
+When = PostTransaction
+Exec = /usr/bin/chmod u+s /usr/bin/bwrap

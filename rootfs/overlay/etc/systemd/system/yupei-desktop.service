@@ -4,12 +4,16 @@ After=yupei-cpuinfo.service yupei-firmware.service systemd-user-sessions.service
 Wants=yupei-cpuinfo.service
 
 [Service]
-ExecStartPre=/usr/lib/yupei/desktop-cleanup
+# "+": cleanup runs as root even when the session runs as the desktop user.
+ExecStartPre=+/usr/lib/yupei/desktop-cleanup
 ExecStart=/usr/lib/yupei/gnome-session
-ExecStopPost=/usr/lib/yupei/desktop-cleanup
+ExecStopPost=+/usr/lib/yupei/desktop-cleanup
 # A logind session (autologin, no VT on GKI): see /etc/pam.d/yupei-desktop.
 PAMName=yupei-desktop
-User=root
+# The desktop user is set in yupei-desktop.service.d/user.conf (User=...);
+# without it the session runs as root.
+RuntimeDirectory=yupei-desktop
+RuntimeDirectoryMode=0700
 Environment=XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user XDG_SEAT=seat0 XDG_SESSION_DESKTOP=gnome
 Restart=always
 RestartSec=3

@@ -1,0 +1,135 @@
+diff --git a/src/backends/native/meta-onscreen-native.c b/src/backends/native/meta-onscreen-native.c
+index 1e35a03..365d8bd 100644
+--- a/src/backends/native/meta-onscreen-native.c
++++ b/src/backends/native/meta-onscreen-native.c
+@@ -40,6 +40,7 @@
+ #include "backends/native/meta-drm-buffer.h"
+ #include "backends/native/meta-frame-native.h"
+ #include "backends/native/meta-kms-connector.h"
++#include "backends/native/meta-kms-crtc.h"
+ #include "backends/native/meta-kms-device.h"
+ #include "backends/native/meta-kms-plane.h"
+ #include "backends/native/meta-kms-utils.h"
+@@ -684,6 +685,65 @@ apply_color_range (MetaKmsPlaneAssignment *kms_plane_assignment,
+                                          META_KMS_PLANE_YCBCR_COLOR_RANGE_LIMITED);
+ }
+ 
++/*
++ * Split scanout: some Qualcomm SDE (msm_drm) panels, e.g. dual-DSI + DSC ones
++ * such as the Xiaomi Pad 8's 3200x2136, are driven as two layer mixers and
++ * need one plane per half; a single full-width plane modesets but underruns.
++ * Android's HWC splits the frame in two; do the same here: left half on the
++ * primary plane, right half of the same buffer on a second plane.
++ * MUTTER_SPLIT_PRIMARY_PLANE=0/1 forces it off/on; by default it is used on
++ * msm_drm when the output is wider than one mixer (2560 px).
++ */
++#define SPLIT_PLANE_MAX_MIXER_WIDTH 2560
++
++static gboolean
++should_split_primary_plane (MetaKmsCrtc        *kms_crtc,
++                            const MtkRectangle *dst_rect)
++{
++  static int forced = -2;
++  MetaKmsDevice *kms_device;
++
++  if (forced == -2)
++    {
++      const char *env = g_getenv ("MUTTER_SPLIT_PRIMARY_PLANE");
++
++      forced = env ? (int) g_ascii_strtoll (env, NULL, 10) : -1;
++    }
++  if (forced >= 0)
++    return forced > 0;
++
++  kms_device = meta_kms_crtc_get_device (kms_crtc);
++  return g_strcmp0 (meta_kms_device_get_driver_name (kms_device), "msm_drm") == 0 &&
++         dst_rect->width > SPLIT_PLANE_MAX_MIXER_WIDTH;
++}
++
++static MetaKmsPlane *
++find_split_plane (MetaKmsCrtc  *kms_crtc,
++                  MetaKmsPlane *primary_kms_plane)
++{
++  MetaKmsDevice *kms_device = meta_kms_crtc_get_device (kms_crtc);
++  MetaKmsPlane *fallback = NULL;
++  GList *l;
++
++  /* Prefer an overlay plane, so primary planes stay free for other CRTCs. */
++  for (l = meta_kms_device_get_planes (kms_device); l; l = l->next)
++    {
++      MetaKmsPlane *kms_plane = l->data;
++
++      if (kms_plane == primary_kms_plane ||
++          meta_kms_plane_get_plane_type (kms_plane) == META_KMS_PLANE_TYPE_CURSOR ||
++          !meta_kms_plane_is_usable_with (kms_plane, kms_crtc))
++        continue;
++
++      if (meta_kms_plane_get_plane_type (kms_plane) == META_KMS_PLANE_TYPE_OVERLAY)
++        return kms_plane;
++      if (!fallback)
++        fallback = kms_plane;
++    }
++
++  return fallback;
++}
++
+ static MetaKmsPlaneAssignment *
+ assign_primary_plane (MetaCrtcKms            *crtc_kms,
+                       MetaDrmBuffer          *buffer,
+@@ -715,6 +775,56 @@ assign_primary_plane (MetaCrtcKms            *crtc_kms,
+ 
+   kms_crtc = meta_crtc_kms_get_kms_crtc (crtc_kms);
+   primary_kms_plane = meta_crtc_kms_get_assigned_primary_plane (crtc_kms);
++
++  if (should_split_primary_plane (kms_crtc, dst_rect))
++    {
++      MetaKmsPlane *split_kms_plane = find_split_plane (kms_crtc, primary_kms_plane);
++
++      if (split_kms_plane)
++        {
++          MetaFixed16Rectangle src_left = src_rect_fixed16, src_right;
++          MtkRectangle dst_left = *dst_rect, dst_right;
++          MetaKmsPlaneAssignment *right_assignment;
++
++          dst_left.width = dst_rect->width / 2;
++          dst_right = (MtkRectangle) {
++            .x = dst_rect->x + dst_left.width,
++            .y = dst_rect->y,
++            .width = dst_rect->width - dst_left.width,
++            .height = dst_rect->height,
++          };
++          src_left.width = meta_fixed_16_from_double (src_rect->size.width *
++                                                      dst_left.width / dst_rect->width);
++          src_right = src_rect_fixed16;
++          src_right.x = src_rect_fixed16.x + src_left.width;
++          src_right.width = src_rect_fixed16.width - src_left.width;
++
++          plane_assignment = meta_kms_update_assign_plane (kms_update,
++                                                           kms_crtc,
++                                                           primary_kms_plane,
++                                                           buffer,
++                                                           src_left,
++                                                           dst_left,
++                                                           flags);
++          apply_transform (crtc_kms, plane_assignment, primary_kms_plane);
++          apply_color_encoding (plane_assignment, primary_kms_plane);
++          apply_color_range (plane_assignment, primary_kms_plane);
++
++          right_assignment = meta_kms_update_assign_plane (kms_update,
++                                                           kms_crtc,
++                                                           split_kms_plane,
++                                                           buffer,
++                                                           src_right,
++                                                           dst_right,
++                                                           flags);
++          apply_transform (crtc_kms, right_assignment, split_kms_plane);
++          apply_color_encoding (right_assignment, split_kms_plane);
++          apply_color_range (right_assignment, split_kms_plane);
++
++          return plane_assignment;
++        }
++    }
++
+   plane_assignment = meta_kms_update_assign_plane (kms_update,
+                                                    kms_crtc,
+                                                    primary_kms_plane,

@@ -1,5 +1,6 @@
 // yupei-powerkey: power button handling for the GNOME session on yupei.
-// Short press: toggle the screen (/usr/lib/yupei/screen-toggle).
+// Short press: $YUPEI_POWERKEY_SHORT, default /usr/lib/yupei/screen-toggle
+// (presenter mode); native GNOME uses /usr/lib/yupei/power-short (lock/wake).
 // Hold (>= 0.7 s): GNOME's power-off dialog (org.gnome.SessionManager.Shutdown,
 // answered by yupei-session-manager). logind is told to ignore the key
 // (/etc/systemd/logind.conf.d/yupei.conf).
@@ -75,7 +76,8 @@ int main(void)
 			long_fired = 0;
 		} else if (e.value == 0 && down >= 0) {
 			if (!long_fired)
-				spawn("/usr/lib/yupei/screen-toggle");
+				spawn(getenv("YUPEI_POWERKEY_SHORT") ? getenv("YUPEI_POWERKEY_SHORT")
+								    : "/usr/lib/yupei/screen-toggle");
 			down = -1;
 		}
 	}

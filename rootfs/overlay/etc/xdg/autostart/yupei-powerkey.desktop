@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Power key (Xiaomi Pad 8)
+Comment=Tap: lock / wake. Hold: power off dialog.
+Exec=env YUPEI_POWERKEY_SHORT=/usr/lib/yupei/power-short /usr/local/bin/yupei-powerkey
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Phase=Application
