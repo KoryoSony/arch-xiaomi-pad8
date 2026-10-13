@@ -19,6 +19,7 @@ fi
 # Nothing in gki_defconfig depends on them.
 stub_dir() {
     local d=$SRC/$1
+    grep -qs "source \"$1/Kconfig\"" "$(dirname "$d")/Kconfig" || return 0
     if [ -L "$d" ] && [ ! -e "$d" ]; then rm "$d"; fi
     mkdir -p "$d"
     [ -e "$d/Kconfig" ] || : > "$d/Kconfig"

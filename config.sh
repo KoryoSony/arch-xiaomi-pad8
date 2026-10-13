@@ -1,8 +1,16 @@
 # Shared settings for every build step. Sourced, not executed.
 
 DEVICE=yupei                       # Xiaomi Pad 8 (P82)
-KERNEL_REPO=https://github.com/MiCode/Xiaomi_Kernel_OpenSource
-KERNEL_BRANCH=yupei-w-oss          # Linux 6.6 GKI + Qualcomm "sun" platform, HyperOS 3 / Android 16
+# The tablet's boot.img runs Google's GKI, not a Xiaomi build: HyperOS
+# OS4.0.5.0 ships "6.6.118-android15-8-gc4127a25dcf3-ab15863337", which is
+# commit c4127a25dcf3 = tag android15-6.6-2026-01_r37. Building from that exact
+# tag gives identical symbol CRCs for the prebuilt vendor modules. When the ROM
+# changes, tools/extract-stock.sh prints the new version; find its tag with
+#   git ls-remote https://android.googlesource.com/kernel/common | grep ^<sha>
+KERNEL_REPO=https://android.googlesource.com/kernel/common
+KERNEL_BRANCH=android15-6.6-2026-01_r37
+# Xiaomi's tree (MiCode/Xiaomi_Kernel_OpenSource yupei-w-oss, 6.6.57) is the same
+# KMI generation but older, and only matters for the vendor modules we reuse.
 KERNEL_SERIES=6.6                  # the stock ROM's vendor modules must be built for this series
 
 # Google's kernel toolchain pinned by build.config.constants (CLANG_VERSION=r510928).

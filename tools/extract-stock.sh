@@ -15,7 +15,10 @@ rm -rf "$STOCK" "$STOCK_IMG" && mkdir -p "$STOCK"/{vendor_dlkm,vendor,ramdisk,un
 tmp=$WORK/stock-tmp; rm -rf "$tmp"; mkdir -p "$tmp"
 
 if [ -f "$src" ]; then
-    tar -xzf "$src" -C "$tmp"
+    # Only what we use: skips userdata.img, firmware blobs etc. (disk is tight).
+    tar -xzf "$src" -C "$tmp" --wildcards \
+        '*/images/boot.img' '*/images/init_boot.img' '*/images/vendor_boot.img' \
+        '*/images/dtbo.img' '*/images/vbmeta*.img' '*/images/super.img*'
     src=$tmp
 fi
 images=$(dirname "$(find "$src" -name vendor_boot.img -print -quit)")
@@ -25,6 +28,9 @@ for i in boot init_boot vendor_boot dtbo vbmeta vbmeta_system; do
     if [ -f "$images/$i.img" ]; then cp "$images/$i.img" "$STOCK_IMG/"; fi
 done
 
+kver=$(grep -aom1 'Linux version [^ ]* ' "$STOCK_IMG/boot.img" || true)
+echo "== stock kernel: ${kver:-unknown (compressed Image)}"
+echo "   configured source: $KERNEL_REPO @ $KERNEL_BRANCH"
 echo "== stock boot image headers (mkimages.sh reuses os_version and patch level)"
 unpack_bootimg --boot_img "$STOCK_IMG/boot.img" --out "$STOCK/unpacked/boot" --format mkbootimg | tee "$STOCK/boot.args"
 echo
@@ -47,7 +53,12 @@ done
 # super.img may be split (super.img.0, .1, ...) and is sparse.
 supers=$(ls "$images"/super.img* 2>/dev/null | sort -V | paste -sd, -)
 [ -n "$supers" ] || { echo "super.img not found" >&2; exit 1; }
-simg2img "$supers" "$tmp/super.raw"
+if [ "$(od -An -tx1 -N4 "${supers%%,*}" | tr -d ' \n')" = 3aff26ed ]; then
+    simg2img "$supers" "$tmp/super.raw"
+    [ "$src" = "$tmp" ] && rm -f "$images"/super.img*
+else
+    if [ "$src" = "$tmp" ]; then mv "${supers%%,*}" "$tmp/super.raw"; else cp "${supers%%,*}" "$tmp/super.raw"; fi
+fi
 lpdump "$tmp/super.raw" | grep -E '^\s+Name:' | sort -u || true
 
 extract_fs() {   # extract_fs <lp-partition> <dest>
