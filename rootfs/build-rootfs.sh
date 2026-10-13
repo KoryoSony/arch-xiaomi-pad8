@@ -56,6 +56,8 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target serial-getty@hvc0.service
     pacman -Scc --noconfirm
     mv /etc/pacman.conf.orig /etc/pacman.conf
+    # The GKI kernel has no Landlock, so pacman's download sandbox always fails.
+    sed -i '/^\\[options\\]/a DisableSandbox' /etc/pacman.conf
 "
 
 

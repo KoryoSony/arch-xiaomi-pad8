@@ -1,0 +1,22 @@
+#!/bin/sh
+# Start sway on a headless output plus yupei-present to show it on the panel.
+# Bring-up launcher (runs as the invoking user; root for now).
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+killall -q yupei-present sway seatd 2>/dev/null; sleep 1
+# GKI has no VTs (CONFIG_VT=n): keep seatd from binding the seat to one.
+export SEATD_VTBOUND=0
+export WLR_BACKENDS=headless,libinput WLR_RENDERER=pixman WLR_HEADLESS_OUTPUTS=1
+SEATD_VTBOUND=0 setsid seatd -g "$(id -gn)" > /tmp/seatd.log 2>&1 < /dev/null &
+for i in $(seq 1 25); do [ -S /run/seatd.sock ] && break; sleep 0.2; done
+export LIBSEAT_BACKEND=seatd
+setsid sway -c /etc/sway/yupei.conf > /tmp/sway.log 2>&1 < /dev/null &
+for i in $(seq 1 50); do
+    WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" 2>/dev/null | grep -m1 '^wayland-[0-9]*$')
+    [ -n "$WAYLAND_DISPLAY" ] && break
+    sleep 0.2
+done
+[ -n "$WAYLAND_DISPLAY" ] || { echo "sway did not start"; tail -20 /tmp/sway.log; exit 1; }
+export WAYLAND_DISPLAY
+setsid yupei-present > /tmp/present.log 2>&1 < /dev/null &
+echo "sway on $WAYLAND_DISPLAY, presenter pid $!"

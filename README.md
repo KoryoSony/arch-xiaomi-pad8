@@ -15,7 +15,7 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 | ADSP / CDSP remoteprocs | ✅ Started by `yupei-firmware.service` |
 | Battery, charger, USB-C (pmic_glink / UCSI) | ✅ `power_supply` nodes present |
 | Touchscreen (Novatek) + pens, hall sensor, keys | ✅ Input devices present |
-| Display (downstream `msm_drm`, DSI 3200x2136@120) | ⚠️ KMS device + connector present, no client tested yet |
+| Display (downstream `msm_drm`, DSI 3200x2136@120) | ✅ sway desktop via `yupei-present` (two-plane split, CPU rendering) |
 | GPU acceleration (KGSL) | ❌ Needs Mesa built with the KGSL backend |
 | Wi-Fi (WCN7750, `wpss` remoteproc) / Bluetooth | ❌ Not started yet |
 | Audio, camera, suspend | ❌ Not supported |

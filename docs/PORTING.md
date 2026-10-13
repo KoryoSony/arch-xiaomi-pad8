@@ -111,3 +111,11 @@ These are the things that broke the first boots of yupei, in order:
    is visible.
 8. **Power key**: logind powers off on a short press. That's the clean way to
    stop the tablet; hold Power + Volume Down to get back to fastboot.
+9. **Display**: the panel (dual DSI + DSC) needs one plane per half. A single
+   full-width plane modesets fine but underruns (grey screen, colours only at
+   the top) at any refresh rate. `tools/kmsatomic.c` shows the two-plane
+   commit; `tools/yupei-present.c` runs sway on wlroots' headless backend and
+   copies damaged frames (wlr-screencopy) to a two-plane scanout.
+   `/usr/lib/yupei/start-sway` launches it (seatd needs `SEATD_VTBOUND=0`:
+   there are no VTs).
+10. **pacman**: the GKI kernel lacks Landlock, so set `DisableSandbox`.
