@@ -13,7 +13,21 @@ pkill -x yupei-bootlog && sleep 0.5
 # Mesa's shader cache must not keep llvmpipe code built before the CPU type
 # was masked (SVE, see fix-cpuinfo): use a cache tied to this setup.
 export MESA_SHADER_CACHE_DIR=/var/cache/yupei-mesa
-export LIBGL_ALWAYS_SOFTWARE=1 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+# GPU: Mesa built by mesa/build-mesa.sh (Turnip on KGSL + Zink, Adreno 825)
+# in /opt/mesa-yupei. `touch /etc/yupei/no-gpu` falls back to llvmpipe.
+M=/opt/mesa-yupei
+if [ -e $M/lib/libvulkan_freedreno.so ] && [ ! -e /etc/yupei/no-gpu ]; then
+    export LD_LIBRARY_PATH=$M/lib
+    export VK_ICD_FILENAMES=$M/share/vulkan/icd.d/freedreno_icd.aarch64.json
+    export __EGL_VENDOR_LIBRARY_FILENAMES=$M/share/glvnd/egl_vendor.d/50_mesa.json
+    export GBM_BACKENDS_PATH=$M/lib/gbm LIBGL_DRIVERS_PATH=$M/lib/dri
+    export MESA_LOADER_DRIVER_OVERRIDE=zink
+    echo "gnome-session: GPU rendering (zink on Turnip/KGSL)"
+else
+    export LIBGL_ALWAYS_SOFTWARE=1
+    echo "gnome-session: software rendering (llvmpipe)"
+fi
 unset WAYLAND_DISPLAY DISPLAY
 exec dbus-run-session -- sh -c '
     pipewire & sleep 1

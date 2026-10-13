@@ -18,7 +18,7 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 | Pens | ❌ Not decoded yet |
 | Hall sensor, keys | ✅ Input devices present |
 | Display (downstream `msm_drm`, DSI 3200x2136@120) | ✅ sway (`yupei-present`) or GNOME 51 (`yupei-present-gnome`), CPU rendering |
-| GPU acceleration (KGSL) | ❌ Needs Mesa built with the KGSL backend |
+| GPU (Adreno 825, KGSL) | ✅ Mesa Turnip (KGSL) + Zink, OpenGL 4.6 / GLES 3.2 / Vulkan 1.4, GNOME renders on it |
 | Wi-Fi (WCN7750, `wpss` remoteproc) / Bluetooth | ❌ Not started yet |
 | Audio, camera, suspend | ❌ Not supported |
 

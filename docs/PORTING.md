@@ -146,3 +146,14 @@ These are the things that broke the first boots of yupei, in order:
     top..bottom. Local maxima + 3x3 centroid + nearest-neighbour tracking,
     published as the uinput multi-touch device `yupei-thp-touch`, which the
     presenter forwards to GNOME. `tools/thp-capture.c` inspects raw frames.
+14. **GPU**: Adreno 825 = KGSL chip id 0x44030000, same 0x4403 core as the
+    Adreno 829 Mesa already knows (4 CCU / 2 slices, a8xx gen2); GMEM 2432 KiB
+    comes from KGSL. `mesa/build-mesa.sh` builds Mesa main with Turnip
+    (`-Dfreedreno-kmds=msm,kgsl`: kgsl alone drops DRM and with it GBM) and
+    Zink into /opt/mesa-yupei, adding the 825 to freedreno_devices.py.
+    `tools/gpu-bench.c`: 3200x2136 full-screen shader passes, 575 fps on the
+    GPU vs 61 fps on llvmpipe, pixel-verified. Turnip/KGSL refuses instances
+    that enable VK_KHR_display (vulkaninfo does); Zink does not.
+    gnome-session exports the Mesa paths and MESA_LOADER_DRIVER_OVERRIDE=zink;
+    mutter then creates its GBM renderer on renderD128 through Zink.
+    `touch /etc/yupei/no-gpu` falls back to llvmpipe.

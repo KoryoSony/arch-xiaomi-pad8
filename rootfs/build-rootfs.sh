@@ -62,6 +62,9 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 "
 
 
+# GPU: Mesa with Turnip on KGSL + Zink (mesa/build-mesa.sh), if built.
+[ -f "$OUT/mesa-yupei.tar.zst" ] && zstd -dc "$OUT/mesa-yupei.tar.zst" | tar -C "$ROOTFS" -xf -
+
 # Kernel: our GKI modules + stock vendor modules (first stage and vendor_dlkm).
 m=$ROOTFS/usr/lib/modules/$KVER
 rm -rf "$m" && mkdir -p "$m/vendor" "$m/vendor_boot"
