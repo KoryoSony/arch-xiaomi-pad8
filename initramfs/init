@@ -1,0 +1,100 @@
+#!/bin/busybox sh
+# First-stage init for Arch on the Xiaomi Pad 8.
+#
+# The bootloader concatenates the stock vendor_boot ramdisk (first-stage
+# vendor modules in /lib/modules, modules.load order list) with this ramdisk
+# from init_boot.img. We load those modules, find the userdata partition and
+# switch_root into Arch. On failure, or with "yupei.debug" on the kernel
+# command line, a shell is offered over USB (telnet 172.16.42.1).
+
+/bin/busybox --install -s /bin
+export PATH=/bin
+
+mkdir -p /proc /sys /dev /run /newroot
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
+mount -t configfs configfs /sys/kernel/config 2>/dev/null
+
+LOG=/run/initramfs.log
+log() { echo "init: $*" > /dev/kmsg; echo "$*" >> $LOG; }
+
+cmdline=$(cat /proc/cmdline)
+case " $cmdline " in *" yupei.debug "*) DEBUG=1 ;; *) DEBUG=0 ;; esac
+
+load_modules() {
+    [ -f /lib/modules/modules.load ] || { log "no vendor ramdisk modules.load"; return; }
+    while read -r m; do
+        [ -f "/lib/modules/$m" ] || continue
+        insmod "/lib/modules/$m" 2>>$LOG || log "insmod $m failed"
+    done < /lib/modules/modules.load
+}
+
+usb_shell() {
+    g=/sys/kernel/config/usb_gadget/g1
+    for i in $(seq 1 50); do [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break; sleep 0.2; done
+    udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
+    [ -n "$udc" ] || { log "no USB device controller"; return 1; }
+    mkdir -p $g/strings/0x409 $g/configs/c.1/strings/0x409 $g/functions/ncm.usb0
+    echo 0x18D1 > $g/idVendor; echo 0xD001 > $g/idProduct
+    echo "Arch Linux ARM" > $g/strings/0x409/manufacturer
+    echo "Xiaomi Pad 8 initramfs" > $g/strings/0x409/product
+    echo "yupei" > $g/strings/0x409/serialnumber
+    echo "NCM" > $g/configs/c.1/strings/0x409/configuration
+    ln -s $g/functions/ncm.usb0 $g/configs/c.1/
+    echo "$udc" > $g/UDC
+    sleep 1
+    ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up
+    printf 'start 172.16.42.2\nend 172.16.42.2\ninterface usb0\noption subnet 255.255.255.0\n' > /run/udhcpd.conf
+    touch /run/udhcpd.leases
+    udhcpd -S /run/udhcpd.conf
+    telnetd -b 172.16.42.1 -l /bin/sh
+    log "USB debug shell: telnet 172.16.42.1"
+}
+
+fail() {
+    log "$*"
+    usb_shell
+    log "dropping to debug shell; log at $LOG"
+    while true; do sleep 3600; done
+}
+
+find_userdata() {
+    for u in /sys/class/block/*/uevent; do
+        if grep -qx 'PARTNAME=userdata' "$u"; then
+            echo "/dev/$(basename "$(dirname "$u")")"
+            return 0
+        fi
+    done
+    return 1
+}
+
+log "Arch Linux on Xiaomi Pad 8, kernel $(uname -r)"
+load_modules
+[ "$DEBUG" = 1 ] && usb_shell
+
+root=
+for i in $(seq 1 150); do
+    root=$(find_userdata) && break
+    sleep 0.2
+done
+[ -n "$root" ] || fail "userdata partition not found"
+
+mount -t ext4 -o rw,noatime "$root" /newroot || fail "cannot mount $root (is it formatted with the Arch image?)"
+[ -x /newroot/usr/lib/systemd/systemd ] || fail "$root has no Arch root filesystem"
+
+if [ "$DEBUG" = 1 ]; then
+    log "yupei.debug set: waiting for 'touch /run/continue' over telnet"
+    while [ ! -e /run/continue ]; do sleep 1; done
+fi
+
+mkdir -p /newroot/var/log && cp $LOG /newroot/var/log/initramfs.log 2>/dev/null
+
+# Release the debug gadget so the rootfs can set up its own.
+killall telnetd udhcpd 2>/dev/null
+[ -e /sys/kernel/config/usb_gadget/g1/UDC ] && echo "" > /sys/kernel/config/usb_gadget/g1/UDC 2>/dev/null
+
+umount /dev/pts /sys/kernel/config 2>/dev/null
+for m in /dev /proc /sys; do mount --move "$m" "/newroot$m"; done
+exec switch_root /newroot /usr/lib/systemd/systemd

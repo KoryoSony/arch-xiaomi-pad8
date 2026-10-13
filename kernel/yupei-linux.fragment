@@ -1,0 +1,32 @@
+# Options a systemd-based Arch userspace needs that GKI leaves out.
+#
+# Every option here must leave the KMI untouched: the vendor modules on the
+# device (display, GPU, Wi-Fi, charging, touch...) are Xiaomi prebuilts built
+# with CONFIG_MODVERSIONS against the stock GKI, so any change to an exported
+# struct layout makes them fail to load (or worse). tools/check-kmi.py verifies
+# this against the stock modules after every build.
+#
+# Deliberately NOT enabled, because they change struct layouts or inline
+# helpers that the prebuilt modules were compiled against:
+#   SYSVIPC (task_struct), POSIX_MQUEUE (ipc_namespace), USER_NS / PID_NS
+#   (get/put_*_ns inlines), CGROUP_PIDS / CGROUP_DEVICE (cgroup subsys count),
+#   NF_TABLES (struct net, sk_buff), VT, DRM_FBDEV_EMULATION.
+# Consequences: no user namespaces (bubblewrap/Flatpak, unprivileged
+# containers), no SysV shm (X11 MIT-SHM falls back), iptables-legacy only.
+
+CONFIG_LOCALVERSION="-4k-arch"
+# CONFIG_LOCALVERSION_AUTO is not set
+
+# Hard requirements for systemd/udev.
+CONFIG_DEVTMPFS=y
+# CONFIG_DEVTMPFS_MOUNT is not set
+CONFIG_FHANDLE=y
+
+# Recommended by systemd; no layout impact.
+CONFIG_TMPFS_XATTR=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_AUTOFS_FS=m
+
+# AF_ALG, used by iwd and systemd-homed.
+CONFIG_CRYPTO_USER_API_HASH=m
+CONFIG_CRYPTO_USER_API_SKCIPHER=m

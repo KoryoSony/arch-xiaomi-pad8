@@ -1,0 +1,26 @@
+#!/bin/sh
+# Mounts the active slot's firmware partitions where the Qualcomm drivers
+# expect them (the same paths Android's ueventd uses). Runs before the
+# vendor modules are loaded, because remoteproc requests firmware at probe.
+set -u
+
+slot=$(sed -n 's/^androidboot\.slot_suffix = "\(.*\)"$/\1/p' /proc/bootconfig 2>/dev/null)
+[ -n "$slot" ] || slot=$(sed -n 's/.*androidboot\.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline)
+[ -n "$slot" ] || slot=_a
+
+dev_for() {
+    for u in /sys/class/block/*/uevent; do
+        grep -qx "PARTNAME=$1" "$u" && { echo "/dev/$(basename "$(dirname "$u")")"; return 0; }
+    done
+    return 1
+}
+
+mnt() {   # mnt <partition> <fstype> <target> <options>
+    d=$(dev_for "$1$slot") || d=$(dev_for "$1") || { echo "no partition $1$slot"; return; }
+    mountpoint -q "$3" || mount -t "$2" -o "$4" "$d" "$3" || echo "mounting $d on $3 failed"
+}
+
+mnt modem     vfat "/vendor/firmware_mnt" ro,shortname=lower
+mnt dsp       ext4 "/vendor/dsp"          ro,nosuid,nodev
+mnt bluetooth vfat "/vendor/bt_firmware"  ro,shortname=lower
+exit 0

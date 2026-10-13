@@ -1,0 +1,26 @@
+#!/bin/sh
+# USB NCM network gadget so the tablet is reachable at 172.16.42.1 (SSH)
+# before Wi-Fi works. systemd-networkd serves DHCP on usb0.
+set -eu
+
+g=/sys/kernel/config/usb_gadget/g1
+mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+
+for i in $(seq 1 100); do
+    udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
+    [ -n "$udc" ] && break
+    sleep 0.2
+done
+[ -n "${udc:-}" ] || { echo "no USB device controller"; exit 1; }
+
+if [ ! -d $g ]; then
+    mkdir -p $g/strings/0x409 $g/configs/c.1/strings/0x409 $g/functions/ncm.usb0
+    echo 0x18D1 > $g/idVendor
+    echo 0xD001 > $g/idProduct
+    echo "Arch Linux ARM" > $g/strings/0x409/manufacturer
+    echo "Xiaomi Pad 8" > $g/strings/0x409/product
+    cat /etc/machine-id 2>/dev/null | cut -c1-16 > $g/strings/0x409/serialnumber
+    echo "NCM" > $g/configs/c.1/strings/0x409/configuration
+    ln -s $g/functions/ncm.usb0 $g/configs/c.1/
+fi
+echo "$udc" > $g/UDC

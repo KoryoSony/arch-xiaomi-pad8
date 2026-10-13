@@ -1,0 +1,2 @@
+# <device>                       <dir>  <type>  <options>                       <dump> <fsck>
+/dev/disk/by-partlabel/userdata  /      ext4    rw,noatime,x-systemd.growfs     0      1

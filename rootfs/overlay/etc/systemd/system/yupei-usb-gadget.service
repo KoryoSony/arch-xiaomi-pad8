@@ -1,0 +1,13 @@
+[Unit]
+Description=USB network gadget (SSH at 172.16.42.1)
+After=systemd-modules-load.service sys-kernel-config.mount
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/yupei/usb-gadget
+
+[Install]
+WantedBy=multi-user.target
