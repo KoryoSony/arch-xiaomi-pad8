@@ -53,7 +53,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
     systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget
-    systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+    systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target serial-getty@hvc0.service
     pacman -Scc --noconfirm
     mv /etc/pacman.conf.orig /etc/pacman.conf
 "

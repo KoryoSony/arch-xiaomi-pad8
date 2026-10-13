@@ -4,19 +4,23 @@ A port of Arch Linux ARM to the Xiaomi Pad 8. It uses the kernel source Xiaomi
 published ([`MiCode/Xiaomi_Kernel_OpenSource@yupei-w-oss`][kernel], Linux 6.6 GKI,
 Qualcomm `sun` platform) together with the vendor drivers and firmware from the stock ROM.
 
-> **Status: untested on hardware.** Everything builds offline and has safety
-> checks, but no one has booted this yet. Start with `./flash.sh --test`,
-> which only RAM-boots. See [docs/PORTING.md](docs/PORTING.md) for the design
-> and bring-up order.
+> **Status: boots on hardware** (2026-10-13, HyperOS OS4.0.5.0.XPZCNXM base,
+> kernel `6.6.118-4k-arch+` built from Google's `android15-6.6-2026-01_r37`).
+> Reaches `multi-user.target` in ~90 s; SSH over USB works.
 
-| Component | Expected state |
+| Component | State on first boot |
 |---|---|
-| Boot, systemd, SSH over USB (172.16.42.1) | Should work: the target of this first version |
-| Touchscreen, battery | Likely (stock vendor modules, evdev / power_supply) |
-| Display (downstream `msm_drm` KMS) | To be verified; software rendering |
-| GPU acceleration (KGSL) | Not yet. Needs Mesa built with the KGSL backend |
-| Wi-Fi / Bluetooth | To be verified |
-| Audio, camera, modem, suspend | Not supported |
+| Boot, systemd, SSH over USB (172.16.42.1) | ✅ Works |
+| Storage, root fs auto-grown to fill userdata | ✅ Works |
+| ADSP / CDSP remoteprocs | ✅ Started by `yupei-firmware.service` |
+| Battery, charger, USB-C (pmic_glink / UCSI) | ✅ `power_supply` nodes present |
+| Touchscreen (Novatek) + pens, hall sensor, keys | ✅ Input devices present |
+| Display (downstream `msm_drm`, DSI 3200x2136@120) | ⚠️ KMS device + connector present, no client tested yet |
+| GPU acceleration (KGSL) | ❌ Needs Mesa built with the KGSL backend |
+| Wi-Fi (WCN7750, `wpss` remoteproc) / Bluetooth | ❌ Not started yet |
+| Audio, camera, suspend | ❌ Not supported |
+
+Hard-won notes for this device are in [docs/PORTING.md](docs/PORTING.md#lessons-from-bring-up).
 
 ## Requirements
 

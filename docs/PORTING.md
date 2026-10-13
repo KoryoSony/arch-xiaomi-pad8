@@ -79,3 +79,35 @@ source release, or the GKI `Image` from that ROM's `boot.img` plus a custom ramd
   initramfs then starts the USB shell and waits for `touch /run/continue`.
 - If the device reboots before USB is up, check `pstore`/ramoops after the next boot:
   `mount -t pstore pstore /sys/fs/pstore`.
+
+## Lessons from bring-up
+
+These are the things that broke the first boots of yupei, in order:
+
+1. **Kernel source**: the device runs Google's GKI, not a Xiaomi build. Find
+   the tag from the `-g<sha>` in the stock version string (OS4.0.5.0:
+   `android15-6.6-2026-01_r37`). Xiaomi's vendor modules (built at 6.6.57)
+   load on it unchanged: all 852 pass `check-kmi.py`.
+2. **vbmeta**: Xiaomi's OS4 bootloader *rejects* boot images ("Failed to
+   load/authenticate boot image") when vbmeta is flashed with verification
+   disabled. Keep the stock vbmeta; unlocked, it accepts unsigned images.
+3. **`fastboot boot` ignores its ramdisk**: the bootloader always takes the
+   ramdisk from the `init_boot` partition. RAM-booting a test image only
+   swaps the kernel (it booted HyperOS on our kernel).
+4. **Ramdisk compression**: the vendor ramdisk is lz4-legacy, so ours must be
+   too. A gzip segment after it is silently not unpacked.
+5. **Module loading**: `modules.load` is not dependency-ordered. Load each
+   module's `modules.dep` closure (deepest first) and `softdep pre:`, pass
+   `<module>.<param>=` arguments from the cmdline, skip `modules.blocklist`.
+   Without this, UFS never probes and the boot stalls on the Mi logo.
+6. **USB gadget**: dwc3-msm only creates its UDC in device mode, which normally
+   comes from the USB-C role via pmic_glink on the ADSP. Force
+   `/sys/devices/platform/soc/*.ssusb/mode` to `peripheral`, and start the
+   ADSP once the modem partition is mounted.
+7. **Recovery**: once our lz4 `init_boot` is valid, it also replaces TWRP's
+   `/init` in recovery boots. Flash a deliberately unparseable `init_boot` to
+   get TWRP back. `tools/probe-init.sh`, `tools/mkimages-probe.sh` and
+   `tools/run-probe.sh` locate hangs with reboot-loop checkpoints when nothing
+   is visible.
+8. **Power key**: logind powers off on a short press. That's the clean way to
+   stop the tablet; hold Power + Volume Down to get back to fastboot.
