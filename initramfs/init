@@ -193,13 +193,17 @@ probe P3
 load_more_modules
 probe P4
 trace "modules loaded"
-# Bring-up aid: always offer the USB shell for a while before switching root.
+# Boot messages on the panel (no VT/fbcon on GKI). Keeps running after
+# switch_root until the desktop session takes over the display.
+[ -x /bin/yupei-bootlog ] && setsid /bin/yupei-bootlog < /dev/null > /dev/null 2>&1 &
+# Bring-up aid: offer the USB shell briefly before switching root
+# (indefinitely with yupei.debug on the kernel command line).
 # Over telnet: "touch /run/continue" boots on now, "touch /run/stay" holds here.
 usb_shell
 trace "usb shell up: $USB_UP"
 probe P5
 [ -x /newroot/usr/lib/systemd/systemd ] || fail "$root has no Arch root filesystem"
-wait=45; [ "$DEBUG" = 1 ] && wait=100000
+wait=3; [ "$DEBUG" = 1 ] && wait=100000
 log "waiting ${wait}s for telnet (touch /run/continue or /run/stay)"
 while [ $wait -gt 0 ] && [ ! -e /run/continue ]; do
     [ -e /run/stay ] || wait=$((wait - 1))

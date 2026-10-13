@@ -1,0 +1,14 @@
+[Unit]
+Description=GNOME desktop on the panel (headless mutter + yupei-present-gnome)
+After=yupei-cpuinfo.service yupei-firmware.service systemd-user-sessions.service dbus.service
+Wants=yupei-cpuinfo.service
+
+[Service]
+ExecStart=/usr/lib/yupei/gnome-session
+Restart=always
+RestartSec=3
+KillMode=control-group
+LimitCORE=infinity
+
+[Install]
+WantedBy=graphical.target

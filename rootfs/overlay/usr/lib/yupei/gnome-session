@@ -1,0 +1,35 @@
+#!/bin/sh
+# GNOME Shell (headless) on the yupei panel via yupei-present-gnome. Runs in
+# the foreground under yupei-desktop.service (as root, no login, for now).
+# Software rendering until the GPU works.
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+# Hand the display over from the boot log.
+pkill -x yupei-bootlog && sleep 0.5
+
+# --no-x11: libgvc's PulseAudio client otherwise connects to the on-demand
+# Xwayland from GNOME's own main loop and deadlocks it.
+# Mesa's shader cache must not keep llvmpipe code built before the CPU type
+# was masked (SVE, see fix-cpuinfo): use a cache tied to this setup.
+export MESA_SHADER_CACHE_DIR=/var/cache/yupei-mesa
+export LIBGL_ALWAYS_SOFTWARE=1 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+unset WAYLAND_DISPLAY DISPLAY
+exec dbus-run-session -- sh -c '
+    pipewire & sleep 1
+    wireplumber &
+    # The presenter starts before GNOME so that it, not mutter, holds DRM
+    # master; it waits for GNOME on the bus, and exits if the cast is stopped
+    # ("Stop" in the screen-sharing menu), so keep restarting it.
+    ( while true; do
+          yupei-present-gnome >> /var/log/yupei-present-gnome.log 2>&1
+          sleep 1
+      done ) &
+    # WirePlumber does not link the video capture stream to mutter by itself
+    # (target.object gets a serial where an id is expected): link by port name.
+    ( while true; do
+          pw-link gnome-shell:output_1 yupei-present-gnome:input_1 >/dev/null 2>&1
+          sleep 2
+      done ) &
+    exec gnome-shell --headless --virtual-monitor 3200x2136 --no-x11
+'

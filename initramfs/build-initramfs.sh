@@ -15,6 +15,8 @@ rm -rf "$d"
 mkdir -p "$d"/{bin,dev,proc,sys,run,newroot}
 install -m755 "$bb" "$d/bin/busybox"
 install -m755 "$TOP/initramfs/init" "$d/init"
+# Static boot log viewer (tools/build-tools.sh), optional.
+[ -x "$OUT/yupei-bootlog" ] && install -m755 "$OUT/yupei-bootlog" "$d/bin/yupei-bootlog"
 
 # Legacy LZ4 like Android's ramdisks: the bootloader appends ours to the
 # lz4-legacy vendor ramdisk, and the kernel's unlz4 reads concatenated

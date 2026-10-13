@@ -1,39 +1,4 @@
 #!/bin/sh
-# GNOME Shell (headless) on the yupei panel through yupei-present-gnome.
-# Bring-up launcher; software rendering until the GPU works.
-export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
-mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
-for p in yupei-present yupei-present-gnome sway swaybg foot seatd gnome-shell mutter-devkit \
-         pipewire wireplumber Xwayland; do
-    pkill -x "$(echo "$p" | cut -c1-15)"
-done
-sleep 2
-for p in yupei-present yupei-present-gnome gnome-shell pipewire wireplumber; do pkill -9 -x "$(echo "$p" | cut -c1-15)"; done
-# --no-x11: libgvc's PulseAudio client otherwise connects to the on-demand
-# Xwayland from GNOME's own main loop and deadlocks it.
-# Mesa's shader cache must not keep llvmpipe code built before the CPU type
-# was masked (SVE, see fix-cpuinfo): use a cache tied to this setup.
-export MESA_SHADER_CACHE_DIR=/var/cache/yupei-mesa
-export LIBGL_ALWAYS_SOFTWARE=1 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
-unset WAYLAND_DISPLAY
-# The presenter starts first so that it, not mutter, holds DRM master; it
-# waits for GNOME on the bus. The session lives as long as gnome-shell.
-ulimit -c unlimited
-setsid dbus-run-session -- sh -c '
-    pipewire & sleep 1
-    wireplumber &
-    yupei-present-gnome > /tmp/present-gnome.log 2>&1 &
-    # WirePlumber does not link the video capture stream to mutter by itself
-    # (target.object gets a serial where an id is expected): link by port name.
-    ( for i in $(seq 1 120); do
-          pw-link gnome-shell:output_1 yupei-present-gnome:input_1 2>/dev/null && break
-          sleep 1
-      done ) &
-    sleep 2
-    if [ "${YUPEI_GDB:-0}" = 1 ]; then
-        exec gdb -q -batch -ex "set pagination off" -ex run -ex "thread apply all bt 25" \
-            --args gnome-shell --headless --virtual-monitor 3200x2136 --no-x11
-    fi
-    exec gnome-shell --headless --virtual-monitor 3200x2136 --no-x11
-' > /tmp/gnome-shell.log 2>&1 < /dev/null &
-echo "GNOME starting; logs: /tmp/gnome-shell.log /tmp/present-gnome.log"
+# (Re)start the GNOME desktop on the panel (yupei-desktop.service).
+systemctl restart yupei-desktop.service
+echo "GNOME (re)starting; logs: journalctl -u yupei-desktop, /var/log/yupei-present-gnome.log"

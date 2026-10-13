@@ -217,6 +217,13 @@ static GVariant *call(const char *name, const char *path, const char *iface,
 	return r;
 }
 
+static void on_session_closed(GDBusConnection *c, const char *sender, const char *path,
+			      const char *iface, const char *signal, GVariant *params, gpointer d)
+{
+	fprintf(stderr, "yupei-present-gnome: remote desktop session closed, exiting\n");
+	exit(2);
+}
+
 static void on_stream_added(GDBusConnection *c, const char *sender, const char *path,
 			    const char *iface, const char *signal, GVariant *params, gpointer d)
 {
@@ -278,6 +285,9 @@ static void gnome_init(void)
 	g_dbus_connection_signal_subscribe(bus, NULL, "org.gnome.Mutter.ScreenCast.Stream",
 					   "PipeWireStreamAdded", sc_stream, NULL,
 					   G_DBUS_SIGNAL_FLAGS_NONE, on_stream_added, NULL, NULL);
+	g_dbus_connection_signal_subscribe(bus, NULL, "org.gnome.Mutter.RemoteDesktop.Session",
+					   "Closed", rd_session, NULL,
+					   G_DBUS_SIGNAL_FLAGS_NONE, on_session_closed, NULL, NULL);
 	call("org.gnome.Mutter.RemoteDesktop", rd_session, "org.gnome.Mutter.RemoteDesktop.Session",
 	     "Start", NULL, NULL);
 	for (int i = 0; !node_id && i < 1000; i++)
@@ -511,10 +521,18 @@ static void on_process(void *d)
 	pw_stream_queue_buffer(stream, b);
 }
 
+static int was_streaming;
+
+// If the cast is stopped (e.g. "Stop" in GNOME's screen-sharing menu) or the
+// stream breaks, exit; the session script restarts us with a new session.
 static void on_state_changed(void *d, enum pw_stream_state old, enum pw_stream_state state, const char *err)
 {
 	fprintf(stderr, "yupei-present-gnome: stream state %s%s%s\n", pw_stream_state_as_string(state),
 		err ? ": " : "", err ? err : "");
+	if (state == PW_STREAM_STATE_STREAMING)
+		was_streaming = 1;
+	if (state == PW_STREAM_STATE_ERROR || (was_streaming && state == PW_STREAM_STATE_UNCONNECTED))
+		exit(2);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -524,6 +542,14 @@ static const struct pw_stream_events stream_events = {
 	.process = on_process,
 };
 
+// D-Bus signals (session Closed) are dispatched on GLib's default context,
+// while the main thread runs PipeWire's loop.
+static void *glib_thread(void *arg)
+{
+	g_main_loop_run(g_main_loop_new(NULL, FALSE));
+	return NULL;
+}
+
 int main(int argc, char **argv)
 {
 	kms_init();
@@ -531,8 +557,9 @@ int main(int argc, char **argv)
 	gnome_init();
 	pthread_t th;
 	pthread_create(&th, NULL, touch_thread, NULL);
-	pthread_t th2;
+	pthread_t th2, th3;
 	pthread_create(&th2, NULL, input_thread, NULL);
+	pthread_create(&th3, NULL, glib_thread, NULL);
 
 	pw_init(&argc, &argv);
 	struct pw_main_loop *loop = pw_main_loop_new(NULL);
