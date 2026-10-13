@@ -122,10 +122,26 @@ load_more_modules() {
     load_list modules.load.recovery
 }
 
+# The Qualcomm controller only creates its UDC once it is in device mode; that
+# normally comes from the USB-C role reported by the ADSP. Force it instead.
+force_peripheral() {
+    for m in /sys/devices/platform/soc/*.ssusb/mode; do
+        [ -w "$m" ] && echo peripheral > "$m" 2>/dev/null
+    done
+    for r in /sys/class/usb_role/*ssusb-role-switch/role; do
+        [ -w "$r" ] && echo device > "$r" 2>/dev/null
+    done
+    return 0
+}
+
 usb_shell() {
     [ -n "${USB_UP:-}" ] && return 0
     g=/sys/kernel/config/usb_gadget/g1
-    for i in $(seq 1 50); do [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break; sleep 0.2; done
+    for i in $(seq 1 100); do
+        force_peripheral
+        [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break
+        sleep 0.2
+    done
     udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
     [ -n "$udc" ] || { log "no USB device controller"; return 1; }
     mkdir -p $g/strings/0x409 $g/configs/c.1/strings/0x409 $g/functions/ncm.usb0

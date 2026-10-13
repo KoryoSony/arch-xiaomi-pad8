@@ -4,9 +4,22 @@
 set -eu
 
 g=/sys/kernel/config/usb_gadget/g1
+# The Qualcomm controller only creates its UDC once it is in device mode; that
+# normally comes from the USB-C role reported by the ADSP. Force it instead.
+force_peripheral() {
+    for m in /sys/devices/platform/soc/*.ssusb/mode; do
+        [ -w "$m" ] && echo peripheral > "$m" 2>/dev/null
+    done
+    for r in /sys/class/usb_role/*ssusb-role-switch/role; do
+        [ -w "$r" ] && echo device > "$r" 2>/dev/null
+    done
+    return 0
+}
+
 mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
 
-for i in $(seq 1 100); do
+for i in $(seq 1 150); do
+    force_peripheral
     udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
     [ -n "$udc" ] && break
     sleep 0.2

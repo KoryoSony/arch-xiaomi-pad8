@@ -23,4 +23,14 @@ mnt() {   # mnt <partition> <fstype> <target> <options>
 mnt modem     vfat "/vendor/firmware_mnt" ro,shortname=lower
 mnt dsp       ext4 "/vendor/dsp"          ro,nosuid,nodev
 mnt bluetooth vfat "/vendor/bt_firmware"  ro,shortname=lower
+
+# Android starts the DSPs from init scripts once firmware is reachable. The
+# ADSP runs the USB-C/charger manager (pmic_glink), so start it and the CDSP.
+# The Wi-Fi subsystem (wpss) is left alone until it has been tested.
+for r in /sys/class/remoteproc/remoteproc*; do
+    case $(cat "$r/name") in
+        *adsp*|*cdsp*)
+            [ "$(cat "$r/state")" = offline ] && echo start > "$r/state" && echo "started $(cat "$r/name")" ;;
+    esac
+done
 exit 0
