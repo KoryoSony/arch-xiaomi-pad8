@@ -10,7 +10,7 @@ kmi() {
         "$WORK/kernel-stage/lib/modules/$KVER" "$STOCK/vendor_dlkm" "$STOCK/ramdisk"
 }
 
-step=${1:?usage: $0 stock ROM.tgz|kernel|kmi|rootfs|initramfs|images|all ROM.tgz}
+step=${1:?usage: $0 stock ROM.tgz|kernel|kmi|rootfs|initramfs|images|all ROM.tgz|resume}
 case $step in
     stock)     "$TOP/tools/extract-stock.sh" "${2:?fastboot ROM path}" ;;
     kernel)    "$TOP/kernel/build-kernel.sh" ;;
@@ -22,6 +22,13 @@ case $step in
         "$TOP/tools/extract-stock.sh" "${2:?fastboot ROM path}"
         "$TOP/kernel/build-kernel.sh"
         kmi   # stops here if the stock vendor modules would not load
+        "$TOP/rootfs/build-rootfs.sh"
+        "$TOP/initramfs/build-initramfs.sh"
+        "$TOP/tools/mkimages.sh"
+        ;;
+    resume)    # everything after "stock", e.g. after fixing a kernel build failure
+        "$TOP/kernel/build-kernel.sh"
+        kmi
         "$TOP/rootfs/build-rootfs.sh"
         "$TOP/initramfs/build-initramfs.sh"
         "$TOP/tools/mkimages.sh"

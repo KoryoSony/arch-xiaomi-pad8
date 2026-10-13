@@ -21,8 +21,12 @@ if [ "$(uname -m)" != aarch64 ] && [ ! -e /proc/sys/fs/binfmt_misc/qemu-aarch64 
     cut -d: -f2- /usr/lib/binfmt.d/qemu-aarch64-static.conf | sed 's/^/:/' > /proc/sys/fs/binfmt_misc/register
 fi
 
-tarball=$WORK/$(basename "$ALARM_ROOTFS_URL")
-[ -f "$tarball" ] || curl -fL -o "$tarball" "$ALARM_ROOTFS_URL"
+# Reuse the checksum-verified tarball docker/build-image.sh already fetched.
+tarball=$TOP/docker/alarm-base.tar.gz
+if [ ! -f "$tarball" ]; then
+    tarball=$WORK/$(basename "$ALARM_ROOTFS_URL")
+    [ -f "$tarball" ] || curl -fL -o "$tarball" "$ALARM_ROOTFS_URL"
+fi
 rm -rf "$ROOTFS" && mkdir -p "$ROOTFS"
 bsdtar -xpf "$tarball" -C "$ROOTFS"
 
@@ -30,7 +34,7 @@ bsdtar -xpf "$tarball" -C "$ROOTFS"
 cp -a "$TOP/rootfs/overlay/." "$ROOTFS/"
 
 packages=(busybox networkmanager openssh sudo vim htop usbutils pciutils
-          iw wireless-regdb bluez bluez-utils libinput evtest kmscube)
+          iw wireless-regdb bluez bluez-utils libinput evtest)
 case $DESKTOP in
     none) ;;
     sway) packages+=(sway foot wofi seatd) ;;
@@ -38,6 +42,10 @@ case $DESKTOP in
 esac
 
 arch-chroot "$ROOTFS" /bin/bash -euxc "
+    # pacman's disk-space check and download sandbox cannot see real mounts
+    # inside a container chroot; disable them for the build, restore after.
+    cp /etc/pacman.conf /etc/pacman.conf.orig
+    sed -i -e 's/^CheckSpace/#CheckSpace/' -e '/^\[options\]/a DisableSandbox' /etc/pacman.conf
     pacman-key --init
     pacman-key --populate archlinuxarm
     pacman -Rdd --noconfirm linux-aarch64 || true
@@ -47,6 +55,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
     pacman -Scc --noconfirm
+    mv /etc/pacman.conf.orig /etc/pacman.conf
 "
 
 

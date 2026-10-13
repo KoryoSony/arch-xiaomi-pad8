@@ -46,7 +46,10 @@ elif [ -n "${LLVM_DIR:-}" ]; then
 fi
 echo "using $(command -v clang): $(clang --version | head -1)"
 
-MAKE=(make -C "$SRC" O="$KOUT" ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)")
+# Host-only flag: glibc >= 2.42 makes strchr() const-correct, which libbpf
+# (built for resolve_btfids) turns into an error. Kernel objects are unaffected.
+MAKE=(make -C "$SRC" O="$KOUT" ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)"
+      HOSTCFLAGS="-Wno-error=incompatible-pointer-types-discards-qualifiers")
 
 "${MAKE[@]}" gki_defconfig
 "$SRC/scripts/kconfig/merge_config.sh" -m -O "$KOUT" "$KOUT/.config" "$TOP/kernel/yupei-linux.fragment"

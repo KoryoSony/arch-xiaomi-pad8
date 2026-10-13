@@ -63,7 +63,7 @@ source release, or the GKI `Image` from that ROM's `boot.img` plus a custom ramd
 3. `systemctl status systemd-modules-load`: which vendor modules fail and why
    (`dmesg | grep -iE 'disagrees|unknown symbol|firmware'`).
 4. Display: `msm_drm` from `vendor_dlkm` is a downstream SDE KMS driver. Try
-   `kmscube` (software path) or `WLR_RENDERER=pixman sway`.
+   `DESKTOP=sway` with `WLR_RENDERER=pixman sway` (kmscube is not packaged for ALARM).
 5. GPU: KGSL, not msm DRM. Mesa's Turnip has a KGSL backend
    (`-Dfreedreno-kmds=kgsl`), but Arch's mesa is not built with it, and Adreno 8xx
    support must be verified. Expect software rendering first.

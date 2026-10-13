@@ -23,12 +23,22 @@ log() { echo "init: $*" > /dev/kmsg; echo "$*" >> $LOG; }
 cmdline=$(cat /proc/cmdline)
 case " $cmdline " in *" yupei.debug "*) DEBUG=1 ;; *) DEBUG=0 ;; esac
 
-load_modules() {
-    [ -f /lib/modules/modules.load ] || { log "no vendor ramdisk modules.load"; return; }
+load_list() {
+    [ -f "/lib/modules/$1" ] || { log "no /lib/modules/$1"; return; }
     while read -r m; do
         [ -f "/lib/modules/$m" ] || continue
+        name=$(basename "$m" .ko | tr - _)
+        [ -d "/sys/module/$name" ] && continue
         insmod "/lib/modules/$m" 2>>$LOG || log "insmod $m failed"
-    done < /lib/modules/modules.load
+    done < "/lib/modules/$1"
+}
+
+# modules.load only covers what Android's first stage needs (UFS, clocks,
+# regulators). USB device mode (dwc3-msm, eUSB2 PHYs) is only listed for
+# recovery, so load that list too: it is a superset built from the same tree.
+load_modules() {
+    load_list modules.load
+    load_list modules.load.recovery
 }
 
 usb_shell() {
