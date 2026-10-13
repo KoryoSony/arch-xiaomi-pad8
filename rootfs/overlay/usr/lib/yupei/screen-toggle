@@ -1,0 +1,3 @@
+#!/bin/sh
+# Short power-key press: switch the panel off/on (handled by the presenter).
+exec pkill -USR1 -x yupei-present-g

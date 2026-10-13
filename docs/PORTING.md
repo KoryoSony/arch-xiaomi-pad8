@@ -188,3 +188,12 @@ These are the things that broke the first boots of yupei, in order:
     G_RESOURCE_OVERLAYS) so the indicator ignores MetaRemoteDesktopSessionHandle;
     portal ScreenCast sharing (browsers, calls) still shows it. Skipped if the
     upstream code no longer matches.
+21. **Power menu / power key**: GNOME Shell asks org.gnome.SessionManager
+    (gnome-session) whether it can shut down. `yupei-session-manager.js` (gjs)
+    owns that name, answers AVAILABLE, opens GNOME's EndSessionDialog and runs
+    systemctl poweroff/reboot on ConfirmedShutdown/ConfirmedReboot. logind
+    ignores the power key; `yupei-powerkey` maps a short press to screen
+    off/on (SIGUSR1 to the presenter: CRTC off + mutter PowerSaveMode) and a
+    0.7 s hold to the power-off dialog. The panel's session shows up as a
+    MetaScreenCastSessionHandle + MetaRemoteDesktopSessionHandle pair; the
+    indicator patch skips handles paired within 2 s.

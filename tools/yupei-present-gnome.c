@@ -24,6 +24,7 @@
 #include <pipewire/pipewire.h>
 #include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <spa/param/video/format-utils.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -49,7 +50,7 @@ static uint32_t crtc_id, conn_id, planes[2], mode_blob;
 static struct drm_mode_modeinfo mode;
 struct dumb { uint32_t fb, pitch; uint8_t *map; };
 static struct dumb scan[2];
-static int front = -1;
+static int front = -1, blanked, shown_idx;
 
 static void kio(unsigned long req, void *arg, const char *what)
 {
@@ -205,6 +206,32 @@ static void kms_show(int idx)
 	};
 	kio(DRM_IOCTL_MODE_ATOMIC, &at, "ATOMIC commit");
 	front = idx;
+	shown_idx = idx;
+}
+
+// Screen off: detach the planes and deactivate the CRTC (the panel powers
+// down and the touch controller follows it). Screen on: modeset again with
+// the last frame.
+
+static void kms_blank(void)
+{
+	uint32_t objs[4], counts[4], props[8];
+	uint64_t vals[8];
+	int no = 0, k = 0;
+	for (int i = 0; i < 2; i++) {
+		objs[no] = planes[i]; counts[no++] = 2;
+		props[k] = prop(planes[i], DRM_MODE_OBJECT_PLANE, "FB_ID"); vals[k++] = 0;
+		props[k] = prop(planes[i], DRM_MODE_OBJECT_PLANE, "CRTC_ID"); vals[k++] = 0;
+	}
+	objs[no] = crtc_id; counts[no++] = 1;
+	props[k] = prop(crtc_id, DRM_MODE_OBJECT_CRTC, "ACTIVE"); vals[k++] = 0;
+	struct drm_mode_atomic at = {
+		.flags = DRM_MODE_ATOMIC_ALLOW_MODESET, .count_objs = no, .objs_ptr = U64(objs),
+		.count_props_ptr = U64(counts), .props_ptr = U64(props), .prop_values_ptr = U64(vals),
+	};
+	if (ioctl(drm, DRM_IOCTL_MODE_ATOMIC, &at) < 0)
+		fprintf(stderr, "yupei-present-gnome: blank failed: %s\n", strerror(errno));
+	front = -1;   // next kms_show() does a full modeset
 }
 
 /* -------------------------------------------------------- GNOME D-Bus */
@@ -550,6 +577,10 @@ static void on_process(void *d)
 	}
 	if (!b)
 		return;
+	if (blanked) {
+		pw_stream_queue_buffer(stream, b);
+		return;
+	}
 	struct spa_data *sd = &b->buffer->datas[0];
 	static unsigned frames;
 	if (frames++ < 5 || frames % 600 == 0)
@@ -603,6 +634,23 @@ static const struct pw_stream_events stream_events = {
 	.process = on_process,
 };
 
+// SIGUSR1 (/usr/lib/yupei/screen-toggle, short power-key press): screen off/on.
+// Mutter is put into power saving too, so it stops rendering while dark.
+static void on_toggle(void *data, int signo)
+{
+	blanked = !blanked;
+	fprintf(stderr, "yupei-present-gnome: screen %s\n", blanked ? "off" : "on");
+	g_dbus_connection_call(bus, "org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig",
+			       "org.freedesktop.DBus.Properties", "Set",
+			       g_variant_new("(ssv)", "org.gnome.Mutter.DisplayConfig", "PowerSaveMode",
+					     g_variant_new_int32(blanked ? 3 : 0)),
+			       NULL, 0, -1, NULL, NULL, NULL);
+	if (blanked)
+		kms_blank();
+	else
+		kms_show(shown_idx);
+}
+
 // D-Bus signals (session Closed) are dispatched on GLib's default context,
 // while the main thread runs PipeWire's loop.
 static void *glib_thread(void *arg)
@@ -617,6 +665,11 @@ int main(int argc, char **argv)
 	fprintf(stderr, "yupei-present-gnome: panel mode %s %ux%u@%u\n", mode.name, mode.hdisplay, mode.vdisplay, mode.vrefresh);
 	kms_show(0);
 	gnome_init();
+	// SIGUSR1 is handled by PipeWire's loop (signalfd): block it everywhere.
+	sigset_t usr1;
+	sigemptyset(&usr1);
+	sigaddset(&usr1, SIGUSR1);
+	pthread_sigmask(SIG_BLOCK, &usr1, NULL);
 	pthread_t th;
 	pthread_create(&th, NULL, touch_thread, NULL);
 	pthread_t th2, th3;
@@ -625,6 +678,7 @@ int main(int argc, char **argv)
 
 	pw_init(&argc, &argv);
 	struct pw_main_loop *loop = pw_main_loop_new(NULL);
+	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGUSR1, on_toggle, NULL);
 	struct pw_context *ctx = pw_context_new(pw_main_loop_get_loop(loop), NULL, 0);
 	core = pw_context_connect(ctx, NULL, 0);
 	if (!core)
