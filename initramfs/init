@@ -42,6 +42,7 @@ load_modules() {
 }
 
 usb_shell() {
+    [ -n "${USB_UP:-}" ] && return 0
     g=/sys/kernel/config/usb_gadget/g1
     for i in $(seq 1 50); do [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break; sleep 0.2; done
     udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
@@ -60,6 +61,7 @@ usb_shell() {
     touch /run/udhcpd.leases
     udhcpd -S /run/udhcpd.conf
     telnetd -b 172.16.42.1 -l /bin/sh
+    USB_UP=1
     log "USB debug shell: telnet 172.16.42.1"
 }
 
