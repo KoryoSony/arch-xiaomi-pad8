@@ -41,7 +41,7 @@ case $DESKTOP in
     sway) packages+=(sway foot wofi seatd) ;;
     gnome) packages+=(gnome-shell gnome-session gnome-keyring gnome-control-center gnome-console
                       nautilus gnome-text-editor gnome-backgrounds pipewire wireplumber fastfetch
-                      vulkan-tools mesa-utils) ;;
+                      vulkan-tools mesa-utils glib2-devel) ;;
     *) echo "unknown DESKTOP=$DESKTOP" >&2; exit 1 ;;
 esac
 

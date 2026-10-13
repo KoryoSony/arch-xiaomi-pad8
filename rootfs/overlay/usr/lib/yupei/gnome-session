@@ -34,6 +34,26 @@ else
     echo "gnome-session: software rendering (llvmpipe)"
 fi
 unset WAYLAND_DISPLAY DISPLAY
+
+# The panel itself is a RemoteDesktop+ScreenCast session (yupei-present-gnome),
+# so GNOME's "screen is being shared" indicator would always be on. Patch the
+# indicator to ignore RemoteDesktop sessions; ordinary screen sharing (portal
+# ScreenCast, e.g. a browser) still shows it. The patch is applied to the
+# installed GNOME Shell's own file at every start and skipped if it no longer
+# matches, so a GNOME update cannot break the shell.
+OV=$XDG_RUNTIME_DIR/shell-overlay
+mkdir -p "$OV"
+LIBSHELL=$(ls /usr/lib/gnome-shell/libshell-*.so 2>/dev/null | head -n1)
+RA=/org/gnome/shell/ui/status/remoteAccess.js
+if [ -n "$LIBSHELL" ] && command -v gresource >/dev/null &&
+   gresource extract "$LIBSHELL" "$RA" > "$OV/remoteAccess.js" 2>/dev/null &&
+   [ "$(grep -c '        if (handle.isRecording)$' "$OV/remoteAccess.js")" = 1 ]; then
+    sed -i "s/^        if (handle.isRecording)\$/        if (handle.isRecording || handle.constructor.\$gtype.name === 'MetaRemoteDesktopSessionHandle')/" "$OV/remoteAccess.js"
+    export G_RESOURCE_OVERLAYS="$RA=$OV/remoteAccess.js"
+    echo "gnome-session: screen-sharing indicator ignores the panel's RemoteDesktop session"
+else
+    echo "gnome-session: remoteAccess.js changed upstream, indicator left unpatched"
+fi
 exec dbus-run-session -- sh -c '
     pipewire & sleep 1
     wireplumber &

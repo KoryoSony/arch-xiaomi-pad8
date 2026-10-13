@@ -182,3 +182,9 @@ These are the things that broke the first boots of yupei, in order:
     KillUserProcesses=no keeps processes after terminate-session, so
     `desktop-cleanup` (ExecStartPre/ExecStopPost) kill-session's old seat0
     sessions; otherwise every restart left an invisible gnome-shell running.
+20. **Cast icon**: the panel is a RemoteDesktop session, so GNOME showed
+    "screen is being shared" permanently. gnome-session patches the installed
+    status/remoteAccess.js (gresource extract + sed, applied via
+    G_RESOURCE_OVERLAYS) so the indicator ignores MetaRemoteDesktopSessionHandle;
+    portal ScreenCast sharing (browsers, calls) still shows it. Skipped if the
+    upstream code no longer matches.
