@@ -1,0 +1,28 @@
+#!/bin/sh
+# Make the single USB-C port follow what is plugged in. The gadget setup
+# forces dwc3 into peripheral mode (for SSH to a computer); when the USB-C
+# controller (pmic_glink/UCSI on the ADSP) reports that we should be the host
+# (mouse, keyboard, hub), switch dwc3 to host, and back again afterwards.
+mode=$(ls /sys/devices/platform/soc/*.ssusb/mode 2>/dev/null | head -n1)
+role=/sys/class/typec/port0/data_role
+gadget=/sys/kernel/config/usb_gadget/g1/UDC
+[ -n "$mode" ] && [ -e "$role" ] || { echo "no dwc3 mode or typec role"; exit 1; }
+last=
+while sleep 1; do
+    case $(cat "$role") in
+        *"[host]"*) want=host ;;
+        *) want=peripheral ;;
+    esac
+    [ "$want" = "$last" ] && continue
+    echo "USB-C data role: $want"
+    echo "$want" > "$mode"
+    if [ "$want" = peripheral ] && [ -e "$gadget" ]; then
+        for i in $(seq 1 50); do
+            udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
+            [ -n "$udc" ] && break
+            sleep 0.2
+        done
+        [ -n "$udc" ] && [ -z "$(cat "$gadget")" ] && echo "$udc" > "$gadget"
+    fi
+    last=$want
+done

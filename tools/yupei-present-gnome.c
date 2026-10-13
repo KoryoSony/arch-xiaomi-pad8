@@ -22,6 +22,7 @@
 #include <gio/gio.h>
 #include <linux/input.h>
 #include <pipewire/pipewire.h>
+#include <poll.h>
 #include <pthread.h>
 #include <spa/param/video/format-utils.h>
 #include <stdint.h>
@@ -368,6 +369,99 @@ static void *touch_thread(void *arg)
 	return NULL;
 }
 
+/* ------------------------------------------------- mouse and keyboard */
+
+// Headless mutter ignores physical input devices: forward mice and keyboards
+// (anything with relative axes or letter keys) as RemoteDesktop events.
+// Devices are rescanned every 2 s so hot-plugged ones are picked up.
+#define BITS(n) (((n) + 8 * sizeof(long) - 1) / (8 * sizeof(long)))
+static int test_bit(const unsigned long *b, int n) { return (b[n / (8 * sizeof(long))] >> (n % (8 * sizeof(long)))) & 1; }
+
+static void rd_call(const char *method, GVariant *args)
+{
+	g_dbus_connection_call(bus, "org.gnome.Mutter.RemoteDesktop", rd_session,
+			       "org.gnome.Mutter.RemoteDesktop.Session", method, args,
+			       NULL, 0, -1, NULL, NULL, NULL);
+}
+
+static void *input_thread(void *arg)
+{
+	enum { MAXDEV = 32 };
+	int fds[MAXDEV];
+	char paths[MAXDEV][32];
+	int n = 0;
+	for (;;) {
+		// (Re)scan for new devices.
+		for (int i = 0; i < 64; i++) {
+			char p[32], name[128] = "";
+			snprintf(p, sizeof p, "/dev/input/event%d", i);
+			int known = 0;
+			for (int k = 0; k < n; k++)
+				if (!strcmp(paths[k], p)) known = 1;
+			if (known || n == MAXDEV)
+				continue;
+			int fd = open(p, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+			if (fd < 0)
+				continue;
+			unsigned long ev[BITS(EV_MAX + 1)] = {0}, keys[BITS(KEY_MAX + 1)] = {0}, rel[BITS(REL_MAX + 1)] = {0};
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			ioctl(fd, EVIOCGBIT(0, sizeof ev), ev);
+			ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
+			ioctl(fd, EVIOCGBIT(EV_REL, sizeof rel), rel);
+			int mouse = test_bit(ev, EV_REL) && test_bit(rel, REL_X) && test_bit(keys, BTN_LEFT);
+			int kbd = test_bit(ev, EV_KEY) && test_bit(keys, KEY_A) && test_bit(keys, KEY_Z);
+			if (!mouse && !kbd) {
+				close(fd);
+				continue;
+			}
+			fprintf(stderr, "yupei-present-gnome: input %s: %s (%s)\n", p, name,
+				mouse && kbd ? "mouse+keyboard" : mouse ? "mouse" : "keyboard");
+			strcpy(paths[n], p);
+			fds[n++] = fd;
+		}
+		// Forward events for ~2 s, then rescan.
+		struct pollfd pfd[MAXDEV];
+		for (int k = 0; k < n; k++)
+			pfd[k] = (struct pollfd){ .fd = fds[k], .events = POLLIN };
+		for (int t = 0; t < 20; t++) {
+			if (poll(pfd, n, 100) <= 0)
+				continue;
+			int dx = 0, dy = 0;
+			for (int k = 0; k < n; k++) {
+				if (pfd[k].revents & (POLLERR | POLLHUP)) {   // unplugged
+					close(fds[k]);
+					if (k != n - 1) {
+						fds[k] = fds[n - 1];
+						memcpy(paths[k], paths[n - 1], sizeof paths[k]);
+						pfd[k] = pfd[n - 1];
+					}
+					n--; k--;
+					continue;
+				}
+				struct input_event e;
+				while (read(fds[k], &e, sizeof e) == sizeof e) {
+					if (e.type == EV_REL && e.code == REL_X)
+						dx += e.value;
+					else if (e.type == EV_REL && e.code == REL_Y)
+						dy += e.value;
+					else if (e.type == EV_REL && e.code == REL_WHEEL)
+						rd_call("NotifyPointerAxisDiscrete", g_variant_new("(ui)", 0, -e.value));
+					else if (e.type == EV_REL && e.code == REL_HWHEEL)
+						rd_call("NotifyPointerAxisDiscrete", g_variant_new("(ui)", 1, e.value));
+					else if (e.type == EV_KEY && e.value != 2 && e.code >= BTN_MOUSE && e.code < BTN_JOYSTICK)
+						rd_call("NotifyPointerButton", g_variant_new("(ib)", e.code, e.value));
+					else if (e.type == EV_KEY && e.value != 2 && e.code < BTN_MISC)
+						rd_call("NotifyKeyboardKeycode", g_variant_new("(ub)", e.code, e.value));
+				}
+			}
+			if (dx || dy)
+				rd_call("NotifyPointerMotionRelative", g_variant_new("(dd)", (double)dx, (double)dy));
+			g_dbus_connection_flush_sync(bus, NULL, NULL);
+		}
+	}
+	return NULL;
+}
+
 /* ----------------------------------------------------------- PipeWire */
 
 static struct pw_stream *stream;
@@ -437,6 +531,8 @@ int main(int argc, char **argv)
 	gnome_init();
 	pthread_t th;
 	pthread_create(&th, NULL, touch_thread, NULL);
+	pthread_t th2;
+	pthread_create(&th2, NULL, input_thread, NULL);
 
 	pw_init(&argc, &argv);
 	struct pw_main_loop *loop = pw_main_loop_new(NULL);

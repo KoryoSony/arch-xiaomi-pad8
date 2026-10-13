@@ -1,0 +1,11 @@
+[Unit]
+Description=Switch the USB-C port between gadget (computer) and host (mouse, keyboard)
+After=yupei-usb-gadget.service
+
+[Service]
+ExecStart=/usr/lib/yupei/usb-role
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
