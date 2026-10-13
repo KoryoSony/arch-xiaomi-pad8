@@ -1,8 +1,12 @@
-# Build environment. Kernel builds need a case-sensitive filesystem (the tree
-# has xt_MARK.h and xt_mark.h side by side), so this also works on macOS hosts.
+# Build environment.
 #
-#   docker build -t yupei-build .
-#   docker run --rm -it --privileged -v "$PWD:/port" yupei-build ./build.sh all
+#   docker build --platform linux/amd64 -t yupei-build .
+#   docker run --rm -it --privileged --platform linux/amd64 \
+#       -v "$PWD:/port" -v yupei-work:/port/work yupei-build ./build.sh all ROM.tgz
+#
+# work/ MUST be a Docker volume on macOS: the kernel tree has xt_MARK.h next to
+# xt_mark.h and the rootfs has case-colliding files, which a case-insensitive
+# APFS bind mount silently merges. Only out/ (the images) lands on the host.
 #
 # On Apple Silicon this image runs under x86_64 emulation: the kernel build is
 # slow but works.

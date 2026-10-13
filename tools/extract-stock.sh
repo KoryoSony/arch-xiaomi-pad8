@@ -11,7 +11,7 @@ set -euo pipefail
 . "$(dirname "$0")/../config.sh"
 
 src=${1:?usage: $0 fastboot-rom.tgz|dir}
-rm -rf "$STOCK" && mkdir -p "$STOCK"/{img,vendor_dlkm,vendor,ramdisk,unpacked}
+rm -rf "$STOCK" "$STOCK_IMG" && mkdir -p "$STOCK"/{vendor_dlkm,vendor,ramdisk,unpacked} "$STOCK_IMG"
 tmp=$WORK/stock-tmp; rm -rf "$tmp"; mkdir -p "$tmp"
 
 if [ -f "$src" ]; then
@@ -22,13 +22,13 @@ images=$(dirname "$(find "$src" -name vendor_boot.img -print -quit)")
 [ -f "$images/vendor_boot.img" ] || { echo "vendor_boot.img not found in $src" >&2; exit 1; }
 
 for i in boot init_boot vendor_boot dtbo vbmeta vbmeta_system; do
-    [ -f "$images/$i.img" ] && cp "$images/$i.img" "$STOCK/img/"
+    if [ -f "$images/$i.img" ]; then cp "$images/$i.img" "$STOCK_IMG/"; fi
 done
 
 echo "== stock boot image headers (mkimages.sh reuses os_version and patch level)"
-unpack_bootimg --boot_img "$STOCK/img/boot.img" --out "$STOCK/unpacked/boot" --format mkbootimg | tee "$STOCK/boot.args"
+unpack_bootimg --boot_img "$STOCK_IMG/boot.img" --out "$STOCK/unpacked/boot" --format mkbootimg | tee "$STOCK/boot.args"
 echo
-unpack_bootimg --boot_img "$STOCK/img/vendor_boot.img" --out "$STOCK/unpacked/vendor_boot" --format mkbootimg | tee "$STOCK/vendor_boot.args"
+unpack_bootimg --boot_img "$STOCK_IMG/vendor_boot.img" --out "$STOCK/unpacked/vendor_boot" --format mkbootimg | tee "$STOCK/vendor_boot.args"
 echo
 
 # First-stage modules live in the vendor ramdisk(s).
@@ -66,5 +66,17 @@ extract_fs vendor_dlkm_a "$STOCK/vendor_dlkm"
 extract_fs vendor_a "$STOCK/vendor"
 
 rm -rf "$tmp"
+
+# The published source is a $KERNEL_SERIES kernel; a ROM whose vendor modules
+# were built for another series can never be matched.
+ko=$(find "$STOCK/vendor_dlkm" -name '*.ko' -print -quit)
+magic=$(modinfo -F vermagic "$ko")
+echo "stock vendor modules: vermagic '$magic'"
+case $magic in
+    "$KERNEL_SERIES".*) ;;
+    *) echo "ERROR: this ROM's kernel is not $KERNEL_SERIES.x; Xiaomi's published source ($KERNEL_BRANCH) cannot work with it." >&2
+       echo "Use a fastboot ROM whose kernel is $KERNEL_SERIES (HyperOS 3 / Android 16) and flash it to the tablet first." >&2
+       exit 1 ;;
+esac
 nmods=$(find "$STOCK/vendor_dlkm" "$STOCK/ramdisk" -name '*.ko' | wc -l)
 echo "extracted $nmods stock modules and $(du -sh "$STOCK/vendor/firmware" | cut -f1) of vendor firmware into $STOCK"

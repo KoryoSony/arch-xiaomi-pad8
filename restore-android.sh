@@ -8,8 +8,8 @@ set -euo pipefail
 [ "$(fastboot getvar product 2>&1 | sed -n 's/^product: *//p')" = "$DEVICE" ] || { echo "not a $DEVICE" >&2; exit 1; }
 read -r -p "Restore Android (formats userdata)? Type RESTORE: " ok
 [ "$ok" = RESTORE ] || exit 1
-fastboot flash vbmeta "$STOCK/img/vbmeta.img"
-fastboot flash boot "$STOCK/img/boot.img"
-fastboot flash init_boot "$STOCK/img/init_boot.img"
+fastboot flash vbmeta "$STOCK_IMG/vbmeta.img"
+fastboot flash boot "$STOCK_IMG/boot.img"
+fastboot flash init_boot "$STOCK_IMG/init_boot.img"
 fastboot -w
 fastboot reboot

@@ -24,7 +24,7 @@ mkbootimg --header_version 4 --os_version "$osv" --os_patch_level "$ospl" \
     --cmdline "yupei.debug $CMDLINE" -o "$OUT/boot-test.img"
 
 for i in boot init_boot; do
-    stock=$(stat -c %s "$STOCK/img/$i.img")
+    stock=$(stat -c %s "$STOCK_IMG/$i.img")
     ours=$(stat -c %s "$OUT/$i.img")
     [ "$ours" -le "$stock" ] || { echo "$i.img ($ours bytes) is larger than the stock partition image ($stock)" >&2; exit 1; }
 done

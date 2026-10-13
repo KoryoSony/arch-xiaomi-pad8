@@ -21,14 +21,17 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 ## Requirements
 
 - Unlocked bootloader (Mi Unlock). This erases the device.
-- The **fastboot ROM** (`yupei_*_images_OS3.*.tgz`) for the firmware the tablet runs.
+- A **HyperOS 3 (Android 16) fastboot ROM** (`yupei_*_images_OS3.*.tgz`), and the
+  tablet running that same build. Xiaomi only published kernel source for that
+  release; `./build.sh stock` refuses ROMs whose kernel series differs.
 - Docker (or an Arch Linux x86_64/aarch64 machine) for building, plus `fastboot`.
 
 ## Build
 
 ```sh
-docker build -t yupei-build .
-docker run --rm -it --privileged -v "$PWD:/port" yupei-build \
+docker build --platform linux/amd64 -t yupei-build .
+docker run --rm -it --privileged --platform linux/amd64 \
+    -v "$PWD:/port" -v yupei-work:/port/work yupei-build \
     ./build.sh all /port/yupei_global_images_OS3.x.x.x.WPZMIXM.tgz
 # DESKTOP=sway ./build.sh rootfs   to add sway (software rendering)
 ```

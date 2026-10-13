@@ -23,7 +23,7 @@ if [ "${1:-}" = --test ]; then
 fi
 
 for f in boot.img init_boot.img userdata.img; do [ -f "$OUT/$f" ] || { echo "missing $OUT/$f" >&2; exit 1; }; done
-[ -f "$STOCK/img/vbmeta.img" ] || { echo "missing $STOCK/img/vbmeta.img (run tools/extract-stock.sh)" >&2; exit 1; }
+[ -f "$STOCK_IMG/vbmeta.img" ] || { echo "missing $STOCK_IMG/vbmeta.img (run tools/extract-stock.sh)" >&2; exit 1; }
 
 cat <<MSG
 About to flash Arch Linux to slot $slot of this $product:
@@ -34,7 +34,7 @@ MSG
 read -r -p "Type ERASE to continue: " ok
 [ "$ok" = ERASE ] || { echo "aborted"; exit 1; }
 
-fb --disable-verity --disable-verification flash vbmeta "$STOCK/img/vbmeta.img"
+fb --disable-verity --disable-verification flash vbmeta "$STOCK_IMG/vbmeta.img"
 fb flash boot "$OUT/boot.img"
 fb flash init_boot "$OUT/init_boot.img"
 fb flash userdata "$OUT/userdata.img"
