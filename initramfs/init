@@ -23,14 +23,50 @@ log() { echo "init: $*" > /dev/kmsg; echo "$*" >> $LOG; }
 cmdline=$(cat /proc/cmdline)
 case " $cmdline " in *" yupei.debug "*) DEBUG=1 ;; *) DEBUG=0 ;; esac
 
+# Android's first-stage init passes every module its "<module>.<param>=..."
+# arguments from the kernel command line (hwid.project, msm_drm.dsi_display0...)
+# and skips modules.blocklist. insmod does neither, so do it here.
+mod_args() {
+    for t in $(cat /proc/cmdline); do
+        case $t in "$1".*=*) printf '%s ' "${t#"$1".}" ;; esac
+    done
+}
+
+blocked() {
+    [ -f /lib/modules/modules.blocklist ] && grep -qE "^blocklist +$1(\.ko)?\$" /lib/modules/modules.blocklist
+}
+
 load_list() {
     [ -f "/lib/modules/$1" ] || { log "no /lib/modules/$1"; return; }
     while read -r m; do
         [ -f "/lib/modules/$m" ] || continue
-        name=$(basename "$m" .ko | tr - _)
+        file=$(basename "$m" .ko)
+        name=$(echo "$file" | tr - _)
         [ -d "/sys/module/$name" ] && continue
-        insmod "/lib/modules/$m" 2>>$LOG || log "insmod $m failed"
+        if blocked "$file" || blocked "$name"; then log "skip blocklisted $file"; continue; fi
+        args=$(mod_args "$name")
+        trace "insmod $file $args"
+        insmod "/lib/modules/$m" $args 2>>$LOG || log "insmod $m failed"
     done < "/lib/modules/$1"
+}
+
+# Flight recorder: once userdata is mounted, every step and the kernel log go
+# to /newroot/var/log/initramfs-trace.log, synced, so a crash leaves evidence.
+TRACE=
+trace() {
+    [ -n "$TRACE" ] || return 0
+    echo "$(cut -d' ' -f1 /proc/uptime) $*" >> "$TRACE"
+    sync
+}
+
+start_recorder() {
+    mkdir -p /newroot/var/log
+    TRACE=/newroot/var/log/initramfs-trace.log
+    : > "$TRACE"
+    cat $LOG >> "$TRACE"
+    ( while true; do dmesg > /newroot/var/log/initramfs-dmesg.log; sync; sleep 1; done ) &
+    RECORDER=$!
+    trace "recorder started"
 }
 
 # modules.load only covers what Android's first stage needs (UFS, clocks,
@@ -38,6 +74,9 @@ load_list() {
 # recovery, so load that list too: it is a superset built from the same tree.
 load_modules() {
     load_list modules.load
+}
+
+load_more_modules() {
     load_list modules.load.recovery
 }
 
@@ -84,7 +123,6 @@ find_userdata() {
 
 log "Arch Linux on Xiaomi Pad 8, kernel $(uname -r)"
 load_modules
-[ "$DEBUG" = 1 ] && usb_shell
 
 root=
 for i in $(seq 1 150); do
@@ -94,6 +132,10 @@ done
 [ -n "$root" ] || fail "userdata partition not found"
 
 mount -t ext4 -o rw,noatime "$root" /newroot || fail "cannot mount $root (is it formatted with the Arch image?)"
+start_recorder
+load_more_modules
+trace "modules loaded"
+[ "$DEBUG" = 1 ] && usb_shell
 [ -x /newroot/usr/lib/systemd/systemd ] || fail "$root has no Arch root filesystem"
 
 if [ "$DEBUG" = 1 ]; then
@@ -101,7 +143,11 @@ if [ "$DEBUG" = 1 ]; then
     while [ ! -e /run/continue ]; do sleep 1; done
 fi
 
-mkdir -p /newroot/var/log && cp $LOG /newroot/var/log/initramfs.log 2>/dev/null
+trace "switching root"
+kill $RECORDER 2>/dev/null
+dmesg > /newroot/var/log/initramfs-dmesg.log
+cp $LOG /newroot/var/log/initramfs.log 2>/dev/null
+sync
 
 # Release the debug gadget so the rootfs can set up its own.
 killall telnetd udhcpd 2>/dev/null

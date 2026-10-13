@@ -27,14 +27,16 @@ for f in boot.img init_boot.img userdata.img; do [ -f "$OUT/$f" ] || { echo "mis
 
 cat <<MSG
 About to flash Arch Linux to slot $slot of this $product:
-  boot$slot, init_boot$slot  <- Arch kernel / initramfs
-  vbmeta$slot                <- stock, with AVB verification disabled
+  boot_$slot, init_boot_$slot <- Arch kernel / initramfs
+  vbmeta_$slot               <- stock (Xiaomi's OS4 bootloader rejects images
+                               when verification is disabled; unlocked, it
+                               accepts our unsigned boot images anyway)
   userdata                   <- Arch root filesystem (ALL ANDROID DATA IS ERASED)
 MSG
 read -r -p "Type ERASE to continue: " ok
 [ "$ok" = ERASE ] || { echo "aborted"; exit 1; }
 
-fb --disable-verity --disable-verification flash vbmeta "$STOCK_IMG/vbmeta.img"
+fb flash vbmeta "$STOCK_IMG/vbmeta.img"
 fb flash boot "$OUT/boot.img"
 fb flash init_boot "$OUT/init_boot.img"
 fb flash userdata "$OUT/userdata.img"
