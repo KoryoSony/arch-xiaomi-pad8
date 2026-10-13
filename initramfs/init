@@ -9,6 +9,10 @@
 
 /bin/busybox --install -s /bin
 export PATH=/bin
+# Bring-up checkpoints: tools/mkimages-probe.sh bakes PROBE=Pn into a test image,
+# which then reboots at that point (reboot loop = "got this far").
+PROBE=
+probe() { [ "$PROBE" = "$1" ] && { echo "init: probe $1 reached" > /dev/kmsg; sync; reboot -f; }; }
 
 mkdir -p /proc /sys /dev /run /newroot
 mount -t proc proc /proc
@@ -16,6 +20,7 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 mount -t configfs configfs /sys/kernel/config 2>/dev/null
+probe P1
 
 LOG=/run/initramfs.log
 log() { echo "init: $*" > /dev/kmsg; echo "$*" >> $LOG; }
@@ -26,6 +31,16 @@ case " $cmdline " in *" yupei.debug "*) DEBUG=1 ;; *) DEBUG=0 ;; esac
 # Android's first-stage init passes every module its "<module>.<param>=..."
 # arguments from the kernel command line (hwid.project, msm_drm.dsi_display0...)
 # and skips modules.blocklist. insmod does neither, so do it here.
+find_userdata() {
+    for u in /sys/class/block/*/uevent; do
+        if grep -qx 'PARTNAME=userdata' "$u"; then
+            echo "/dev/$(basename "$(dirname "$u")")"
+            return 0
+        fi
+    done
+    return 1
+}
+
 mod_args() {
     for t in $(cat /proc/cmdline); do
         case $t in "$1".*=*) printf '%s ' "${t#"$1".}" ;; esac
@@ -36,18 +51,45 @@ blocked() {
     [ -f /lib/modules/modules.blocklist ] && grep -qE "^blocklist +$1(\.ko)?\$" /lib/modules/modules.blocklist
 }
 
+# modules.load is NOT in dependency order. Like Android's first-stage init,
+# load each module's dependencies first: modules.dep lists the full closure
+# (deepest last), and modules.softdep may name "pre:" modules.
+load_one() {   # load_one /lib/modules/foo.ko
+    local path=$1 file name deps rev d args
+    file=$(basename "$path" .ko)
+    name=$(echo "$file" | tr - _)
+    [ -d "/sys/module/$name" ] && return 0
+    if blocked "$file" || blocked "$name"; then log "skip blocklisted $file"; return 0; fi
+    for d in $(sed -n "s/^softdep $name pre: //p; s/^softdep $file pre: //p" /lib/modules/modules.softdep 2>/dev/null); do
+        for f in "$d" "$(echo "$d" | tr _ -)"; do
+            [ -f "/lib/modules/$f.ko" ] && { load_one "/lib/modules/$f.ko"; break; }
+        done
+    done
+    deps=$(grep "^$path:" /lib/modules/modules.dep 2>/dev/null | cut -d: -f2)
+    rev=
+    for d in $deps; do rev="$d $rev"; done
+    for d in $rev; do load_one "$d"; done
+    args=$(mod_args "$name")
+    echo "$(cut -d' ' -f1 /proc/uptime) insmod $file $args" >> $LOG
+    trace "insmod $file $args"
+    insmod "$path" $args 2>>$LOG || log "insmod $file failed"
+    [ -n "$TRACE" ] || mount_root_early
+}
+
 load_list() {
     [ -f "/lib/modules/$1" ] || { log "no /lib/modules/$1"; return; }
     while read -r m; do
-        [ -f "/lib/modules/$m" ] || continue
-        file=$(basename "$m" .ko)
-        name=$(echo "$file" | tr - _)
-        [ -d "/sys/module/$name" ] && continue
-        if blocked "$file" || blocked "$name"; then log "skip blocklisted $file"; continue; fi
-        args=$(mod_args "$name")
-        trace "insmod $file $args"
-        insmod "/lib/modules/$m" $args 2>>$LOG || log "insmod $m failed"
+        [ -f "/lib/modules/$m" ] && load_one "/lib/modules/$m"
     done < "/lib/modules/$1"
+}
+
+# As soon as UFS is up, mount userdata and start the recorder, so a hang later
+# in module loading still leaves a trace on disk.
+mount_root_early() {
+    r=$(find_userdata) || return 0
+    mount -t ext4 -o rw,noatime "$r" /newroot 2>/dev/null || return 0
+    root=$r
+    start_recorder
 }
 
 # Flight recorder: once userdata is mounted, every step and the kernel log go
@@ -111,39 +153,45 @@ fail() {
     while true; do sleep 3600; done
 }
 
-find_userdata() {
-    for u in /sys/class/block/*/uevent; do
-        if grep -qx 'PARTNAME=userdata' "$u"; then
-            echo "/dev/$(basename "$(dirname "$u")")"
-            return 0
-        fi
-    done
-    return 1
-}
 
-log "Arch Linux on Xiaomi Pad 8, kernel $(uname -r)"
+log "Arch Linux on Xiaomi Pad 8, kernel $(uname -r), init started at $(cut -d' ' -f1 /proc/uptime)s"
 load_modules
-
-root=
-for i in $(seq 1 150); do
-    root=$(find_userdata) && break
-    sleep 0.2
-done
-[ -n "$root" ] || fail "userdata partition not found"
-
-mount -t ext4 -o rw,noatime "$root" /newroot || fail "cannot mount $root (is it formatted with the Arch image?)"
-start_recorder
-load_more_modules
-trace "modules loaded"
-[ "$DEBUG" = 1 ] && usb_shell
-[ -x /newroot/usr/lib/systemd/systemd ] || fail "$root has no Arch root filesystem"
-
-if [ "$DEBUG" = 1 ]; then
-    log "yupei.debug set: waiting for 'touch /run/continue' over telnet"
-    while [ ! -e /run/continue ]; do sleep 1; done
+probe P2
+if [ "$PROBE" = P2s ]; then
+    for i in $(seq 1 150); do [ -e /sys/class/block/sda ] && probe P2s; sleep 0.2; done
 fi
 
+if [ -z "$TRACE" ]; then
+    root=
+    for i in $(seq 1 150); do
+        root=$(find_userdata) && break
+        sleep 0.2
+    done
+    [ -n "$root" ] || fail "userdata partition not found"
+    probe P2a
+    mount -t ext4 -o rw,noatime "$root" /newroot || fail "cannot mount $root (is it formatted with the Arch image?)"
+    probe P2b
+    start_recorder
+fi
+probe P3
+load_more_modules
+probe P4
+trace "modules loaded"
+# Bring-up aid: always offer the USB shell for a while before switching root.
+# Over telnet: "touch /run/continue" boots on now, "touch /run/stay" holds here.
+usb_shell
+trace "usb shell up: $USB_UP"
+probe P5
+[ -x /newroot/usr/lib/systemd/systemd ] || fail "$root has no Arch root filesystem"
+wait=45; [ "$DEBUG" = 1 ] && wait=100000
+log "waiting ${wait}s for telnet (touch /run/continue or /run/stay)"
+while [ $wait -gt 0 ] && [ ! -e /run/continue ]; do
+    [ -e /run/stay ] || wait=$((wait - 1))
+    sleep 1
+done
+
 trace "switching root"
+probe P6
 kill $RECORDER 2>/dev/null
 dmesg > /newroot/var/log/initramfs-dmesg.log
 cp $LOG /newroot/var/log/initramfs.log 2>/dev/null

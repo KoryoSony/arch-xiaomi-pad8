@@ -19,12 +19,12 @@ CMDLINE="firmware_class.path=/vendor/firmware_mnt/image printk.devkmsg=on loglev
 mkbootimg --header_version 4 "${ver[@]}" \
     --kernel "$OUT/Image" --cmdline "$CMDLINE" -o "$OUT/boot.img"
 mkbootimg --header_version 4 "${ver[@]}" \
-    --ramdisk "$OUT/initramfs.cpio.gz" -o "$OUT/init_boot.img"
+    --ramdisk "$OUT/initramfs.cpio.lz4" -o "$OUT/init_boot.img"
 
 # Kernel + ramdisk in one image for "./flash.sh --test" (fastboot boot, RAM only).
 # yupei.debug brings up the USB telnet shell and waits before switching root.
 mkbootimg --header_version 4 "${ver[@]}" \
-    --kernel "$OUT/Image" --ramdisk "$OUT/initramfs.cpio.gz" \
+    --kernel "$OUT/Image" --ramdisk "$OUT/initramfs.cpio.lz4" \
     --cmdline "yupei.debug $CMDLINE" -o "$OUT/boot-test.img"
 
 for i in boot init_boot; do

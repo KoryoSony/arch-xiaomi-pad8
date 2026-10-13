@@ -16,5 +16,8 @@ mkdir -p "$d"/{bin,dev,proc,sys,run,newroot}
 install -m755 "$bb" "$d/bin/busybox"
 install -m755 "$TOP/initramfs/init" "$d/init"
 
-(cd "$d" && find . | sort | cpio -o -H newc -R 0:0 --quiet | gzip -9n) > "$OUT/initramfs.cpio.gz"
-echo "initramfs: $OUT/initramfs.cpio.gz"
+# Legacy LZ4 like Android's ramdisks: the bootloader appends ours to the
+# lz4-legacy vendor ramdisk, and the kernel's unlz4 reads concatenated
+# archives chunk by chunk, so a gzip segment after it is never unpacked.
+(cd "$d" && find . | sort | cpio -o -H newc -R 0:0 --quiet) | lz4 -l -12 --favor-decSpeed -f - "$OUT/initramfs.cpio.lz4"
+echo "initramfs: $OUT/initramfs.cpio.lz4"
