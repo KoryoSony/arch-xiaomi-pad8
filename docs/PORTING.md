@@ -137,3 +137,12 @@ These are the things that broke the first boots of yupei, in order:
     computes the points and hands them back to the driver. Without that
     userspace, no input events are produced. Its firmware
     (`novatek_nt36532_yupei_fw_boe.bin`, odm) is reloaded on every resume.
+13. **Touch decoder**: `tools/yupei-touchd.c` replaces Xiaomi's THP HAL. It
+    reads frames from `/dev/xiaomi-touch` (ioctl magic 'T': SELECT_TOUCH_ID 3,
+    HARDWARE_PARAM 1, SELECT_MMAP 2 with area 1 = frames, GET_FRAME_DATA_INDEX
+    4; `poll()` POLLPRI per frame). Finger frames (type 3) carry a 60x40 int16
+    matrix at tp_raw+64; a finger raises cells by ~1000 over a ~10000
+    baseline (noise ~20). Column 0..59 = screen left..right, row 39..0 =
+    top..bottom. Local maxima + 3x3 centroid + nearest-neighbour tracking,
+    published as the uinput multi-touch device `yupei-thp-touch`, which the
+    presenter forwards to GNOME. `tools/thp-capture.c` inspects raw frames.

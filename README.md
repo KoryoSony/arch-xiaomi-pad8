@@ -14,7 +14,8 @@ Qualcomm `sun` platform) together with the vendor drivers and firmware from the 
 | Storage, root fs auto-grown to fill userdata | ✅ Works |
 | ADSP / CDSP remoteprocs | ✅ Started by `yupei-firmware.service` |
 | Battery, charger, USB-C (pmic_glink / UCSI) | ✅ `power_supply` nodes present |
-| Touchscreen (Novatek NT36532) + pens | ❌ Xiaomi THP: finger positions are computed by proprietary Android userspace |
+| Touchscreen (Novatek NT36532, Xiaomi THP) | ✅ `yupei-touchd`: own decoder for the raw frames → uinput multi-touch |
+| Pens | ❌ Not decoded yet |
 | Hall sensor, keys | ✅ Input devices present |
 | Display (downstream `msm_drm`, DSI 3200x2136@120) | ✅ sway (`yupei-present`) or GNOME 51 (`yupei-present-gnome`), CPU rendering |
 | GPU acceleration (KGSL) | ❌ Needs Mesa built with the KGSL backend |

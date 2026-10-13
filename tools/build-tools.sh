@@ -10,7 +10,8 @@ python3 -I "$T/gen-font.py" "$WORK/kernel/lib/fonts/font_8x16.c" "$G/font8x16.h"
 X=$(find /usr/share/wlr-protocols -name wlr-screencopy-unstable-v1.xml)
 wayland-scanner client-header "$X" "$G/wlr-screencopy-unstable-v1-client-protocol.h"
 wayland-scanner private-code "$X" "$G/wlr-screencopy-protocol.c"
-for t in kmstest kmsatomic kmsprops; do gcc -O2 -Wall -static -o "$OUT/$t" "$T/$t.c"; done
+for t in kmstest kmsatomic kmsprops thp-capture; do gcc -O2 -Wall -static -o "$OUT/$t" "$T/$t.c"; done
+gcc -O2 -Wall -static -o "$OUT/yupei-touchd" "$T/yupei-touchd.c" -lm
 gcc -O2 -Wall -static -I"$G" -o "$OUT/yupei-bootlog" "$T/yupei-bootlog.c"
 gcc -O2 -Wall -I"$G" -o "$OUT/yupei-present" "$T/yupei-present.c" "$G/wlr-screencopy-protocol.c" -lwayland-client
 gcc -O2 -Wall -o "$OUT/yupei-present-gnome" "$T/yupei-present-gnome.c" \

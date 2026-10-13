@@ -1,0 +1,12 @@
+[Unit]
+Description=Touch input for the Xiaomi THP touchscreen (frames -> uinput multi-touch)
+After=systemd-modules-load.service
+
+[Service]
+ExecStart=/usr/local/bin/yupei-touchd
+Restart=always
+RestartSec=1
+Nice=-10
+
+[Install]
+WantedBy=multi-user.target

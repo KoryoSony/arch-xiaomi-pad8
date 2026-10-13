@@ -302,33 +302,66 @@ static void gnome_init(void)
 
 /* -------------------------------------------------------------- touch */
 
+// Prefer yupei-touchd's screen-oriented device; the panel's own
+// NVTCapacitiveTouchScreen (portrait axes) only reports in non-THP setups.
+static int open_touch(char *name, size_t len, int *oriented)
+{
+	for (int pass = 0; pass < 2; pass++)
+		for (int i = 0; i < 64; i++) {
+			char path[64];
+			snprintf(path, sizeof path, "/dev/input/event%d", i);
+			int f = open(path, O_RDONLY | O_CLOEXEC);
+			if (f < 0)
+				continue;
+			if (ioctl(f, EVIOCGNAME(len), name) >= 0 &&
+			    (pass == 0 ? !strcmp(name, "yupei-thp-touch") : strstr(name, "TouchScreen") != NULL)) {
+				*oriented = pass == 0;
+				return f;
+			}
+			close(f);
+		}
+	return -1;
+}
+
+static void touch_loop(int fd, const char *name, int oriented);
+
 static void *touch_thread(void *arg)
 {
-	int fd = -1;
-	char path[64], name[128];
-	for (int i = 0; i < 32 && fd < 0; i++) {
-		snprintf(path, sizeof path, "/dev/input/event%d", i);
-		int f = open(path, O_RDONLY | O_CLOEXEC);
-		if (f < 0)
+	for (;;) {   // re-open if the device goes away (e.g. yupei-touchd restarts)
+		char name[128] = "";
+		int oriented = 0, fd = -1;
+		for (int tries = 0; tries < 20 && fd < 0; tries++) {   // give yupei-touchd a moment
+			fd = open_touch(name, sizeof name, &oriented);
+			if (fd >= 0 && !oriented && tries < 19) {
+				close(fd);
+				fd = -1;
+				sleep(1);
+			}
+		}
+		if (fd < 0) {
+			sleep(2);
 			continue;
-		if (ioctl(f, EVIOCGNAME(sizeof name), name) >= 0 && strstr(name, "TouchScreen"))
-			fd = f;
-		else
-			close(f);
+		}
+		touch_loop(fd, name, oriented);
+		close(fd);
+		sleep(1);
 	}
-	if (fd < 0) {
-		fprintf(stderr, "yupei-present-gnome: no touchscreen found, touch disabled\n");
-		return NULL;
-	}
+	return NULL;
+}
+
+static void touch_loop(int fd, const char *name, int oriented)
+{
 	struct input_absinfo ax, ay;
 	ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &ax);
 	ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &ay);
 	const char *e;
-	int swap = (e = getenv("YUPEI_TOUCH_SWAP")) ? atoi(e) : 1;
+	int swap = (e = getenv("YUPEI_TOUCH_SWAP")) ? atoi(e) : !oriented;
 	int inv_x = (e = getenv("YUPEI_TOUCH_INVERT_X")) ? atoi(e) : 0;
 	int inv_y = (e = getenv("YUPEI_TOUCH_INVERT_Y")) ? atoi(e) : 0;
 	fprintf(stderr, "yupei-present-gnome: touch %s x 0..%d y 0..%d swap=%d invx=%d invy=%d\n",
 		name, ax.maximum, ay.maximum, swap, inv_x, inv_y);
+	if (oriented)
+		inv_x = inv_y = 0;
 
 	enum { MAXS = 16 };
 	struct { int id, x, y, dirty, down; } s[MAXS];
@@ -376,7 +409,11 @@ static void *touch_thread(void *arg)
 			g_dbus_connection_flush_sync(bus, NULL, NULL);
 		}
 	}
-	return NULL;
+	// Device gone: release any fingers still down.
+	for (int i = 0; i < MAXS; i++)
+		if (s[i].down)
+			g_dbus_connection_call(bus, svc, rd_session, ifc, "NotifyTouchUp",
+					       g_variant_new("(u)", i), NULL, 0, -1, NULL, NULL, NULL);
 }
 
 /* ------------------------------------------------- mouse and keyboard */
