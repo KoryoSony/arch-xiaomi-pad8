@@ -1,0 +1,18 @@
+# GNOME defaults for the Xiaomi Pad 8 bring-up.
+# Solid colour background: image loading goes through glycin, whose sandbox
+# (bubblewrap) cannot work without user namespaces on this GKI kernel.
+[org/gnome/desktop/background]
+picture-options='none'
+primary-color='#1793d1'
+color-shading-type='solid'
+
+[org/gnome/desktop/screensaver]
+picture-options='none'
+primary-color='#1793d1'
+
+# 3200x2136 on an 11" panel: 2x scaling.
+[org/gnome/desktop/interface]
+scaling-factor=uint32 2
+
+[org/gnome/desktop/a11y/applications]
+screen-keyboard-enabled=true

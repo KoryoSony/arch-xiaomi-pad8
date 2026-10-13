@@ -75,6 +75,7 @@ extract_fs() {   # extract_fs <lp-partition> <dest>
 }
 extract_fs vendor_dlkm_a "$STOCK/vendor_dlkm"
 extract_fs vendor_a "$STOCK/vendor"
+extract_fs odm_a "$STOCK/odm"         # touch (NT36532) + camera/sensor firmware
 
 rm -rf "$tmp"
 

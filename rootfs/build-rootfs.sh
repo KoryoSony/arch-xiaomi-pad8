@@ -52,7 +52,8 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-cpuinfo
+    dconf update 2>/dev/null || true
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target serial-getty@hvc0.service
     pacman -Scc --noconfirm
     mv /etc/pacman.conf.orig /etc/pacman.conf
@@ -86,6 +87,9 @@ block=$(find "$STOCK/vendor_dlkm" -name modules.blocklist | head -n1)
 # partitions (modem, dsp, bluetooth) are mounted at boot instead.
 mkdir -p "$ROOTFS/usr/lib/firmware"
 cp -a "$STOCK/vendor/firmware/." "$ROOTFS/usr/lib/firmware/"
+# odm firmware: the touch controller keeps its firmware in RAM and the driver
+# reloads novatek_nt36532_yupei_fw_*.bin from here on every display resume.
+cp -a "$STOCK/odm/firmware/." "$ROOTFS/usr/lib/firmware/"
 mkdir -p "$ROOTFS"/vendor/{firmware_mnt,dsp,bt_firmware}
 
 # Pack as a sparse ext4 image for "fastboot flash userdata".

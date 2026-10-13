@@ -1,0 +1,14 @@
+#!/bin/sh
+# GNOME Shell on a headless virtual monitor, shown through mutter-devkit's
+# viewer window inside the sway/yupei-present session (start-sway first).
+# Bring-up launcher; software rendering until the GPU works.
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-$(ls "$XDG_RUNTIME_DIR" | grep -m1 '^wayland-[0-9]*$')}
+[ -n "$WAYLAND_DISPLAY" ] || { echo "start sway first (/usr/lib/yupei/start-sway)"; exit 1; }
+killall -q gnome-shell mutter-devkit pipewire wireplumber 2>/dev/null; sleep 1
+export LIBGL_ALWAYS_SOFTWARE=1 GSK_RENDERER=cairo XDG_SESSION_TYPE=wayland
+setsid dbus-run-session -- sh -c '
+    pipewire & sleep 1; wireplumber & sleep 1
+    exec gnome-shell --devkit
+' > /tmp/gnome.log 2>&1 < /dev/null &
+echo "gnome-shell --devkit started, log in /tmp/gnome.log"

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Qualcomm ships these Cortex-A720/A520 cores with SVE disabled (no "sve" in
+# the Features line), but LLVM derives SVE from the core type ("CPU part"),
+# so llvmpipe's JIT emits SVE code and Mesa users die with SIGILL. Present a
+# core LLVM knows has no SVE (Cortex-A76, 0xd0b) both in /proc/cpuinfo and in
+# the per-CPU MIDR_EL1 sysfs files newer LLVM reads; the real Features stay.
+grep -qw sve /proc/cpuinfo && exit 0
+if ! mountpoint -q /proc/cpuinfo; then
+    sed 's/^\(CPU part\s*:\s*\).*/\10xd0b/' /proc/cpuinfo > /run/yupei-cpuinfo
+    mount --bind /run/yupei-cpuinfo /proc/cpuinfo
+fi
+echo 0x00000000414fd0b1 > /run/yupei-midr
+for m in /sys/devices/system/cpu/cpu*/regs/identification/midr_el1; do
+    [ -e "$m" ] && ! mountpoint -q "$m" && mount --bind /run/yupei-midr "$m"
+done
+exit 0

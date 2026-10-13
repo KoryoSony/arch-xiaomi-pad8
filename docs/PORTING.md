@@ -119,3 +119,21 @@ These are the things that broke the first boots of yupei, in order:
    `/usr/lib/yupei/start-sway` launches it (seatd needs `SEATD_VTBOUND=0`:
    there are no VTs).
 10. **pacman**: the GKI kernel lacks Landlock, so set `DisableSandbox`.
+11. **GNOME**: `yupei-present-gnome` + `start-gnome` run `gnome-shell --headless
+    --virtual-monitor 3200x2136 --no-x11`, record Meta-0 over the Mutter
+    ScreenCast/RemoteDesktop D-Bus APIs (PipeWire, linked by port name) and
+    forward touches as RemoteDesktop touch events. Pitfalls found on the way:
+    - **SVE**: these Cortex-A720/A520 cores have SVE disabled, but LLVM infers
+      it from the core type, so llvmpipe JIT code dies with SIGILL
+      (`index z1.s`). `yupei-cpuinfo.service` presents a Cortex-A76 in
+      /proc/cpuinfo and the MIDR_EL1 sysfs files; Mesa's shader cache must be
+      cleared of code built before that.
+    - `--no-x11`: otherwise libgvc's PulseAudio client connects to the
+      on-demand Xwayland from GNOME's main loop and deadlocks it.
+    - Solid background: glycin's sandbox (bubblewrap) cannot run without
+      user namespaces.
+12. **Touch**: the NT36532 controller runs Xiaomi THP. It streams raw
+    capacitance frames (60x40) and `libtouchreport_hal.so` (Android, odm)
+    computes the points and hands them back to the driver. Without that
+    userspace, no input events are produced. Its firmware
+    (`novatek_nt36532_yupei_fw_boe.bin`, odm) is reloaded on every resume.
