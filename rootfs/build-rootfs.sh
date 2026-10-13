@@ -4,6 +4,7 @@
 #
 #   DESKTOP=none   headless: SSH over USB / Wi-Fi (default, recommended first boot)
 #   DESKTOP=sway   + sway with the pixman software renderer
+#   DESKTOP=gnome  + GNOME (headless mutter + yupei-present-gnome, GPU via Mesa)
 set -euo pipefail
 . "$(dirname "$0")/../config.sh"
 
@@ -38,6 +39,9 @@ packages=(busybox networkmanager openssh sudo vim htop usbutils pciutils
 case $DESKTOP in
     none) ;;
     sway) packages+=(sway foot wofi seatd) ;;
+    gnome) packages+=(gnome-shell gnome-session gnome-keyring gnome-control-center gnome-console
+                      nautilus gnome-text-editor gnome-backgrounds pipewire wireplumber fastfetch
+                      vulkan-tools mesa-utils) ;;
     *) echo "unknown DESKTOP=$DESKTOP" >&2; exit 1 ;;
 esac
 

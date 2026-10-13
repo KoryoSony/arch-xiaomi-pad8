@@ -1,0 +1,21 @@
+#!/bin/sh
+# Stop GNOME sessions left over from earlier starts of yupei-desktop.service.
+# With PAMName= the session lives in its own logind scope, outside the
+# service's cgroup, so stopping or restarting the service alone leaves the old
+# gnome-shell running (and rendering an invisible monitor). Only our sessions
+# are on seat0 (SSH logins have no seat).
+# terminate-session alone only ends the login record (KillUserProcesses=no
+# keeps its processes), so signal the processes: TERM, then KILL.
+old=$(loginctl list-sessions --no-legend | awk -v me="${XDG_SESSION_ID:-}" '$4 == "seat0" && $1 != me {print $1}')
+for s in $old; do loginctl kill-session --signal=TERM "$s"; done
+for i in $(seq 1 20); do
+    left=
+    for s in $old; do [ -n "$(loginctl show-session "$s" -p Leader --value 2>/dev/null)" ] && left=1; done
+    [ -z "$left" ] && break
+    sleep 0.25
+done
+for s in $old; do
+    loginctl kill-session --signal=KILL "$s" 2>/dev/null
+    loginctl terminate-session "$s" 2>/dev/null
+done
+exit 0

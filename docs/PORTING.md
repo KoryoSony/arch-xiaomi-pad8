@@ -174,3 +174,11 @@ These are the things that broke the first boots of yupei, in order:
     so GNOME runs in an active logind session. Without it NetworkManager
     ignores GNOME Shell's secret agent (no Wi-Fi password prompt) and polkit
     refuses its authentication agent.
+18. **Wi-Fi password prompt**: GNOME Shell's network agent first looks the
+    secret up in the keyring; without a Secret Service (gnome-keyring) the
+    lookup errors out and no dialog is shown ("Internal error while
+    retrieving secrets from the keyring").
+19. **One desktop only**: logind keeps PAM sessions in their own scope and
+    KillUserProcesses=no keeps processes after terminate-session, so
+    `desktop-cleanup` (ExecStartPre/ExecStopPost) kill-session's old seat0
+    sessions; otherwise every restart left an invisible gnome-shell running.

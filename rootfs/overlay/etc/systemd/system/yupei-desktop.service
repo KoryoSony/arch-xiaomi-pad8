@@ -4,7 +4,9 @@ After=yupei-cpuinfo.service yupei-firmware.service systemd-user-sessions.service
 Wants=yupei-cpuinfo.service
 
 [Service]
+ExecStartPre=/usr/lib/yupei/desktop-cleanup
 ExecStart=/usr/lib/yupei/gnome-session
+ExecStopPost=/usr/lib/yupei/desktop-cleanup
 # A logind session (autologin, no VT on GKI): see /etc/pam.d/yupei-desktop.
 PAMName=yupei-desktop
 User=root
