@@ -1,0 +1,11 @@
+# PAM stack for yupei-desktop.service: no password (autologin), but a real
+# logind session (pam_systemd), so NetworkManager accepts GNOME Shell's
+# secret agent (Wi-Fi password prompts) and polkit its authentication agent.
+auth      required  pam_permit.so
+account   required  pam_permit.so
+password  required  pam_deny.so
+session   required  pam_loginuid.so
+session   optional  pam_keyinit.so force revoke
+session   required  pam_limits.so
+session   required  pam_env.so
+session   required  pam_systemd.so

@@ -169,3 +169,8 @@ These are the things that broke the first boots of yupei, in order:
     /run/user/0 is emptied by user-runtime-dir@0 whenever a root login ends,
     which removed the Wayland socket ("Failed to open display" for new apps).
     upower needs `PrivateUsers=no` (no user namespaces on GKI).
+17. **Login session**: yupei-desktop.service uses `PAMName=yupei-desktop`
+    (pam_permit + pam_systemd) with XDG_SESSION_TYPE=wayland/XDG_SEAT=seat0,
+    so GNOME runs in an active logind session. Without it NetworkManager
+    ignores GNOME Shell's secret agent (no Wi-Fi password prompt) and polkit
+    refuses its authentication agent.

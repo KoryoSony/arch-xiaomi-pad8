@@ -5,6 +5,10 @@ Wants=yupei-cpuinfo.service
 
 [Service]
 ExecStart=/usr/lib/yupei/gnome-session
+# A logind session (autologin, no VT on GKI): see /etc/pam.d/yupei-desktop.
+PAMName=yupei-desktop
+User=root
+Environment=XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user XDG_SEAT=seat0 XDG_SESSION_DESKTOP=gnome
 Restart=always
 RestartSec=3
 KillMode=control-group
