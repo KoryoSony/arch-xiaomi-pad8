@@ -1,6 +1,7 @@
 # AudioReach userspace (PAL/AGM/GSL, run inside the user's PipeWire) talks to
 # the ADSP's audio framework through the audio packet driver; Android-style
-# defaults are root-only.
-KERNEL=="aud_pasthru_adsp", GROUP="audio", MODE="0660"
-KERNEL=="apr_apps2", GROUP="audio", MODE="0660"
-KERNEL=="msm_audio_ion*", GROUP="audio", MODE="0660"
+# defaults are root-only. uaccess: also whoever is logged in on the seat
+# (users created with GNOME Initial Setup are not in the audio group).
+KERNEL=="aud_pasthru_adsp", GROUP="audio", MODE="0660", TAG+="uaccess"
+KERNEL=="apr_apps2", GROUP="audio", MODE="0660", TAG+="uaccess"
+KERNEL=="msm_audio_ion*", GROUP="audio", MODE="0660", TAG+="uaccess"

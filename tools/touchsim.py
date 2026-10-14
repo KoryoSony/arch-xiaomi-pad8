@@ -70,6 +70,14 @@ elif scen == 'adjacent':
         cs = [(x, y, amp_at(t - s, d)) for (s, d, (x, y)) in taps if s <= t < s + d]
         frames.append(frame(cs))
     expect = keys
+elif scen == 'hold':
+    # finger resting still for 1 s (jitter), then dragged at 1500 px/s (lag)
+    for k in range(120):
+        frames.append(frame([(1600.0, 1000.0, 900)]))
+    for k in range(60):
+        frames.append(frame([(1600.0 + 1500.0 * k / 120, 1000.0, 900)]))
+    frames.append(frame([]))
+    expect = [(1600, 1000)]
 elif scen == 'swipe':
     # fast swipe 2400 px in 150 ms (16000 px/s), with one weak frame
     n = 18

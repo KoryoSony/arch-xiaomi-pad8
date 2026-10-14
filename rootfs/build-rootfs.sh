@@ -41,7 +41,7 @@ packages=(busybox libbsd libyaml networkmanager openssh sudo vim htop usbutils p
 case $DESKTOP in
     none) ;;
     sway) packages+=(sway foot wofi seatd) ;;
-    gnome) packages+=(gdm gnome-shell gnome-session gnome-keyring gnome-control-center gnome-console
+    gnome) packages+=(gdm gnome-initial-setup rtkit gnome-shell gnome-session gnome-keyring gnome-control-center gnome-console
                       nautilus gnome-text-editor gnome-backgrounds pipewire wireplumber fastfetch
                       vulkan-tools mesa-utils glib2-devel) ;;
     *) echo "unknown DESKTOP=$DESKTOP" >&2; exit 1 ;;

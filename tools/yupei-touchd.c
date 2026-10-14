@@ -83,8 +83,8 @@ static int T_UP = 140;     // a touching finger lifts below this
 #define FAST_PX_S 1500.0       // above this a finger may skip one weak frame
 
 // 1-euro filter (Casiez et al.), per axis, in pixels.
-#define EURO_MINCUT 1.2        // Hz, at rest
-#define EURO_BETA 0.012        // cutoff increase per px/s
+#define EURO_MINCUT 4.0        // Hz, at rest (measured: 0.5 px jitter, 2 ms lag at 1500 px/s)
+#define EURO_BETA 0.05         // cutoff increase per px/s
 #define EURO_DCUT 1.0
 
 #define CELL_W ((double)(SCREEN_W - 1))
@@ -373,6 +373,8 @@ static void process_frame(const int16_t *m, int C, int R, int64_t t)
 		emit(EV_ABS, ABS_MT_POSITION_X, (int)lround(fing[f].ox));
 		emit(EV_ABS, ABS_MT_POSITION_Y, (int)lround(fing[f].oy));
 		emit(EV_ABS, ABS_MT_TOUCH_MAJOR, fing[f].major);
+		if (replay && getenv("YUPEI_TOUCH_TRACE"))
+			report(t, "move", f);
 		changed = 1;
 	}
 	// Unmatched fingers lift, except a fast-moving one gets one frame of grace.
