@@ -6,7 +6,11 @@
 # the per-CPU MIDR_EL1 sysfs files newer LLVM reads; the real Features stay.
 grep -qw sve /proc/cpuinfo && exit 0
 if ! mountpoint -q /proc/cpuinfo; then
-    sed 's/^\(CPU part\s*:\s*\).*/\10xd0b/' /proc/cpuinfo > /run/yupei-cpuinfo
+    # Also name the real SoC for GNOME's About page (there is no "model name"
+    # on arm64, and the masked part number would read as a Cortex-A76).
+    sed -e 's/^\(CPU part\s*:\s*\).*/\10xd0b/' \
+        -e 's/^processor\s*:.*/&\nmodel name\t: Qualcomm Snapdragon 8s Gen 4/' \
+        /proc/cpuinfo > /run/yupei-cpuinfo
     mount --bind /run/yupei-cpuinfo /proc/cpuinfo
 fi
 echo 0x00000000414fd0b1 > /run/yupei-midr

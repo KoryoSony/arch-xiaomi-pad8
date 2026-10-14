@@ -1,0 +1,5 @@
+PRETTY_HOSTNAME="Xiaomi Pad 8"
+CHASSIS=tablet
+ICON_NAME=computer-tablet
+HARDWARE_VENDOR=Xiaomi
+HARDWARE_MODEL="Pad 8 (yupei)"

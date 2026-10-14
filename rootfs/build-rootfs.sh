@@ -55,6 +55,8 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     # pacman's disk-space check and download sandbox cannot see real mounts
     # inside a container chroot; disable them for the build, restore after.
     cp /etc/pacman.conf /etc/pacman.conf.orig
+    # Keep the overlay's os-release (Settings > About: 'Arch Linux ARM | by koryo').
+    sed -i '/^\[options\]/a NoExtract = usr/lib/os-release' /etc/pacman.conf /etc/pacman.conf.orig
     sed -i -e 's/^CheckSpace/#CheckSpace/' -e '/^\[options\]/a DisableSandbox' /etc/pacman.conf
     pacman-key --init
     pacman-key --populate archlinuxarm
