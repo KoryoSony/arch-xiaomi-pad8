@@ -1,0 +1,22 @@
+#!/bin/bash
+# Qualcomm's CPU/bus power tuning for the SM8735 (2+3+2+1 cores), as Android's
+# init.kernel.post_boot-tuna.sh applies it: walt governor and its tunables,
+# core_ctl (parks idle big cores), minimum frequencies, LLCC/DDR bandwidth
+# monitors, deep CPU idle (qcom_lpm). The GKI kernel otherwise boots with the
+# "performance" governor: every core at full clock while idle.
+# The script itself comes from the stock vendor image (rootfs/build-rootfs.sh
+# copies it to /usr/lib/yupei/vendor/); Android property calls are stubbed.
+S=/usr/lib/yupei/vendor/init.kernel.post_boot-tuna_default_2_3_2_1.sh
+setprop() { :; }
+getprop() { echo; }
+if [ -r "$S" ] && [ -d /proc/sys/walt ]; then
+    . "$S" >/dev/null 2>&1
+else
+    # Fallback without walt: the generic kernel governor.
+    for p in /sys/devices/system/cpu/cpufreq/policy*; do echo schedutil > "$p/scaling_governor"; done
+    echo N > /sys/devices/system/cpu/qcom_lpm/parameters/sleep_disabled 2>/dev/null
+fi
+for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    echo "$(basename "$p"): $(cat "$p/scaling_governor") $(cat "$p/scaling_min_freq")-$(cat "$p/scaling_max_freq")"
+done
+exit 0

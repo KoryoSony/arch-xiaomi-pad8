@@ -66,7 +66,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     echo xiaomi-pad8 > /etc/hostname
     passwd -l root   # sudo from wheel users instead; SSH as root needs a key
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*
@@ -92,6 +92,10 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 [ -f "$OUT/audioreach.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach.tar.gz" \
     --exclude=./usr/include --exclude='*.la' --exclude='*.a'
 [ -f "$OUT/audioreach-yupei-configs.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach-yupei-configs.tar.gz"
+
+# Qualcomm's power tuning script for this SoC (/usr/lib/yupei/power-tuning).
+install -Dm644 "$STOCK/vendor/bin/init.kernel.post_boot-tuna_default_2_3_2_1.sh" \
+    "$ROOTFS/usr/lib/yupei/vendor/init.kernel.post_boot-tuna_default_2_3_2_1.sh"
 
 # On-device helpers (tools/build-tools.sh, qbootctl/build-qbootctl.sh), if built.
 for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl pd-mapper qrtr-lookup; do

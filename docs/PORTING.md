@@ -283,3 +283,10 @@ These are the things that broke the first boots of yupei, in order:
     wheel sudo with the user's password (no NOPASSWD), root locked, SSH keys
     only except over the USB network (172.16.42.1) for first-time setup of a
     fresh image (alarm/alarm). setup-desktop-user asks for the password.
+30. **Power**: the GKI kernel boots with the "performance" cpufreq governor
+    (every core at full clock) and qcom_lpm `sleep_disabled=1` (no deep CPU
+    idle): ~1.3 A drawn while idle. Android's
+    init.kernel.post_boot-tuna_default_2_3_2_1.sh (walt governor + tunables,
+    core_ctl, min freqs, LLCC/DDR bwmon, deep idle, s2idle) is copied from the
+    stock vendor image and run by yupei-power-tuning.service with Android's
+    setprop/getprop stubbed. Video is still decoded in software (Firefox).

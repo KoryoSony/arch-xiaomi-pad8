@@ -1,0 +1,11 @@
+[Unit]
+Description=Qualcomm CPU/bus power tuning (Android's post_boot settings)
+After=yupei-dsp.service systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/yupei/power-tuning
+
+[Install]
+WantedBy=multi-user.target
