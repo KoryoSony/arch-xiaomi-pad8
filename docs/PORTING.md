@@ -261,16 +261,21 @@ These are the things that broke the first boots of yupei, in order:
     context manager / connectivity proxy off) and installs the Mi ACDB (AGM
     takes exactly one .acdb + .qwsp). udev: aud_pasthru_adsp, apr_apps2,
     msm_audio_ion* -> audio group. WirePlumber: v4l2/libcamera monitors off
-    (Qualcomm camera nodes stalled its event queue: nothing was ever linked);
-    PAL sinks need state.restore-props=false. Result: deep-buffer playback to
+    (Qualcomm camera nodes stalled its event queue: nothing was ever linked).
+    Result: deep-buffer playback to
     the speaker graph (TDM to the SIA91xx amps, speaker protection on).
     Speakers: four SIA91xx amps (SpkrLeft/Right T/B "Sipa" controls); their
     scene/mute settings live in Xiaomi's mixer_paths_overlay_static.xml, which
     Xiaomi's Android HAL merges into the mixer paths. Without it only one amp
     played; audioreach/merge-mixer-overlay.py merges it the same way.
     Stereo layout: the speaker device is 4 TDM slots (PAL map FL FR LB RB);
-    slot 0 = bottom-left, 1 = top-left, 2/3 = right side (landscape). The
+    slot 0 = bottom-left, 1 = top-left, 2 = bottom-right, 3 = top-right (landscape). The
     plugin only filled FL/FR for playback, so the right amps were silent:
     patched to send the full 4-channel map, and the Speakers sink is 4
-    channels positioned RL FL FR RR with PipeWire's simple upmix (left on
+    channels positioned RL FL RR FR with PipeWire's simple upmix (left on
     both left speakers, right on both right). Not orientation-aware yet.
+    Charging icon: UPower re-reads the battery only on a uevent, which the
+    kernel sends at plug-in before battery-guard had corrected current_now,
+    so it showed "discharging". battery-guard now follows the status every
+    second (sign from status, not current) and sends a change uevent when the
+    status flips.

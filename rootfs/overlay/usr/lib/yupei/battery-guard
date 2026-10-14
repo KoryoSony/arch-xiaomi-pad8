@@ -1,13 +1,16 @@
 #!/bin/sh
 # Battery reporting fixes and over-discharge protection for the Xiaomi MCA
-# charger/fuel-gauge drivers, every 5 s:
+# charger/fuel-gauge drivers (percentage and voltage every 5 s):
 #  - Percentage: MCA's displayed SOC (UISOC) is re-estimated from voltage at
 #    boot, which reads high while charging (37% shown at a real 5%). Mirror the
 #    fuel gauge's raw_soc (0.01 %) into strategy_fg/fake_soc, which MCA then
 #    reports as the battery capacity.
 #  - Charging sign: MCA reports a negative current_now while charging; UPower
-#    then shows "discharging". Write the corrected value to $CUR, which
-#    upower.service sees in place of current_now (bind mount, see its drop-in).
+#    then shows "discharging". Write a value whose sign follows the charger
+#    status to $CUR, which upower.service sees in place of current_now (bind
+#    mount, see its drop-in). Checked every second; when the status changes
+#    (charger plugged/unplugged) UPower re-reads only on a uevent, which the
+#    kernel sent before $CUR was right, so send it a fresh one.
 #  - Over-discharge: nothing on Linux acted on MCA's critical level and the
 #    battery once ran down to 2.5 V (Android stops at 3.25 V). Power off when
 #    it stays below CUTOFF_MV for a minute.
@@ -19,18 +22,30 @@ CUTOFF_MV=${CUTOFF_MV:-3300}
 WARN_MV=${WARN_MV:-3450}
 mkdir -p "${CUR%/*}"
 [ -e $CUR ] || echo 0 > $CUR
-low=0 warned=0
+low=0 warned=0 tick=0 last_status=
 while :; do
+    st=$(cat $BAT/status 2>/dev/null)
+    c=$(cat $BAT/current_now 2>/dev/null) || c=0
+    c=${c#-}
+    case $st in Charging) ;; *) c=-$c ;; esac
+    echo $c > $CUR   # in place: the file is bind-mounted
+    if [ "$st" != "$last_status" ]; then
+        [ -n "$last_status" ] && udevadm trigger --action=change "$(readlink -f $BAT)" 2>/dev/null
+        last_status=$st
+    fi
+    tick=$((tick + 1))
+    [ $tick -lt 5 ] && { sleep 1; continue; }
+    tick=0
+
     raw=$(cat $SFG/raw_soc 2>/dev/null)
     if [ -n "$raw" ] && [ "$raw" -ge 0 ]; then
         soc=$(( (raw + 50) / 100 ))
         [ $soc -gt 100 ] && soc=100
-        [ "$(cat $BAT/status 2>/dev/null)" = Full ] && soc=100
+        [ "$st" = Full ] && soc=100
         [ "$(cat $SFG/fake_soc 2>/dev/null)" = $soc ] || echo $soc > $SFG/fake_soc
     fi
-    c=$(cat $BAT/current_now 2>/dev/null) && echo $(( -c )) > $CUR   # same inode: bind-mounted
 
-    mv=$(cat $FG/vbatt 2>/dev/null) || { sleep 5; continue; }
+    mv=$(cat $FG/vbatt 2>/dev/null) || { sleep 1; continue; }
     rsoc=$(cat $FG/rsoc 2>/dev/null)
     if [ "$mv" -lt "$CUTOFF_MV" ] || { [ "$rsoc" = 0 ] && [ "$mv" -lt 3400 ]; }; then
         low=$((low + 1))
@@ -49,5 +64,5 @@ while :; do
         systemctl poweroff
         exit 0
     fi
-    sleep 5
+    sleep 1
 done
