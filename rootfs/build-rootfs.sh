@@ -48,11 +48,12 @@ case $DESKTOP in
 esac
 
 if [ "$DESKTOP" = gnome ]; then
+    mkdir -p "$ROOTFS/var/cache/yupei-pkgs"
     ls "$OUT"/mutter-[0-9]*.pkg.tar.* >/dev/null || { echo "build mutter first (mutter/build-mutter.sh)" >&2; exit 1; }
-    cp "$OUT"/mutter-[0-9]*.pkg.tar.* "$ROOTFS/tmp/"
+    cp "$OUT"/mutter-[0-9]*.pkg.tar.* "$ROOTFS/var/cache/yupei-pkgs/"
     # FFmpeg with the V4L2 dma-buf/DRM PRIME patch (hardware video decoding)
     ls "$OUT"/ffmpeg-*.pkg.tar.* >/dev/null || { echo "build ffmpeg first (ffmpeg/build-ffmpeg.sh)" >&2; exit 1; }
-    cp "$(ls -t "$OUT"/ffmpeg-*.pkg.tar.* | head -1)" "$ROOTFS/tmp/"
+    cp "$(ls -t "$OUT"/ffmpeg-*.pkg.tar.* | head -1)" "$ROOTFS/var/cache/yupei-pkgs/"
 fi
 
 arch-chroot "$ROOTFS" /bin/bash -euxc "
@@ -72,8 +73,8 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth yupei-sensorspd
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
-        pacman -U --noconfirm /tmp/mutter-*.pkg.tar.* /tmp/ffmpeg-*.pkg.tar.*
-        rm -f /tmp/mutter-*.pkg.tar.* /tmp/ffmpeg-*.pkg.tar.*
+        pacman -U --noconfirm /var/cache/yupei-pkgs/mutter-*.pkg.tar.* /var/cache/yupei-pkgs/ffmpeg-*.pkg.tar.*
+        rm -f /var/cache/yupei-pkgs/mutter-*.pkg.tar.* /var/cache/yupei-pkgs/ffmpeg-*.pkg.tar.*
         sed -i 's/^#\\?IgnorePkg *=.*/IgnorePkg = mutter mutter-devkit ffmpeg/' /etc/pacman.conf /etc/pacman.conf.orig
         systemctl enable gdm yupei-display-quirks yupei-shell-overlays
         systemctl set-default graphical.target
