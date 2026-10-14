@@ -52,6 +52,9 @@ static int T_KEEP = 180;    // an existing finger survives down to this
 static int T_STUCK = 150;   // baseline below raw by this much: baseline was taken
 			    // with a finger on it, reset it
 static double MATCH_PX = 450, SMOOTH = 0.45;
+static int GRACE = 2;       // frames a finger may go unseen before it is lifted:
+			    // a fast swipe weakens the signal for a frame or two,
+			    // and lifting there splits one swipe into many
 
 static int ufd = -1;
 static void emit(int type, int code, int val)
@@ -90,7 +93,7 @@ static void uinput_setup(void)
 	}
 }
 
-struct finger { int active, id; double x, y; int strength; };
+struct finger { int active, id, miss; double x, y; int strength; };
 static struct finger fing[MAXF];
 static int next_id = 1;
 
@@ -214,6 +217,8 @@ int main(int argc, char **argv)
 				double d = hypot(cand[k].x - fing[f].x, cand[k].y - fing[f].y);
 				if (d < bd) { bd = d; best = k; }
 			}
+			if (best < 0 && ++fing[f].miss <= GRACE)
+				continue;   // maybe just a weak frame: hold position
 			if (best < 0) {   // lifted
 				fing[f].active = 0;
 				emit(EV_ABS, ABS_MT_SLOT, f);
@@ -222,6 +227,7 @@ int main(int argc, char **argv)
 				continue;
 			}
 			cand[best].used = 1;
+			fing[f].miss = 0;
 			fing[f].x += (cand[best].x - fing[f].x) * (1 - SMOOTH);
 			fing[f].y += (cand[best].y - fing[f].y) * (1 - SMOOTH);
 			fing[f].strength = cand[best].peak;
@@ -234,11 +240,18 @@ int main(int argc, char **argv)
 		for (int k = 0; k < nc; k++) {
 			if (cand[k].used || cand[k].peak < T_PEAK)
 				continue;
+			int near_held = 0;   // the weak finger in its grace frames came back
+			for (int g = 0; g < MAXF; g++)
+				if (fing[g].active && fing[g].miss &&
+				    hypot(cand[k].x - fing[g].x, cand[k].y - fing[g].y) < MATCH_PX)
+					near_held = 1;
+			if (near_held)
+				continue;
 			int f;
 			for (f = 0; f < MAXF && fing[f].active; f++);
 			if (f == MAXF)
 				break;
-			fing[f] = (struct finger){ 1, next_id++ & 0xffff, cand[k].x, cand[k].y, cand[k].peak };
+			fing[f] = (struct finger){ 1, next_id++ & 0xffff, 0, cand[k].x, cand[k].y, cand[k].peak };
 			emit(EV_ABS, ABS_MT_SLOT, f);
 			emit(EV_ABS, ABS_MT_TRACKING_ID, fing[f].id);
 			emit(EV_ABS, ABS_MT_POSITION_X, (int)lround(fing[f].x));

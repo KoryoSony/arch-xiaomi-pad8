@@ -8,10 +8,13 @@
 # (and takes the display from the greeter) as soon as GDM opens it. Stock GDM
 # only starts the session after the greeter's fade-out animation completes,
 # which can then never render: login hangs. Start the session first.
+#
+# unlockDialog.js: the lock screen only takes 3-finger touch swipes (touchpad
+# style); on a tablet, let one finger swipe it up, like the on-screen keyboard.
 set -u
 D=/var/lib/yupei/shell-overlay
 L=$(ls /usr/lib/gnome-shell/libshell-*.so 2>/dev/null | head -1)
-rm -rf "$D" && mkdir -p "$D/gdm"
+rm -rf "$D" && mkdir -p "$D/gdm" "$D/ui"
 [ -n "$L" ] || exit 0
 gresource extract "$L" /org/gnome/shell/gdm/loginDialog.js > "$D/gdm/loginDialog.js.orig" || exit 0
 perl -0pe '
@@ -23,4 +26,15 @@ perl -0pe '
     rm -f "$D/gdm/loginDialog.js"
 }
 rm -f "$D/gdm/loginDialog.js.orig"
+
+gresource extract "$L" /org/gnome/shell/ui/unlockDialog.js > "$D/ui/unlockDialog.js.orig" || exit 0
+perl -0pe '
+    s{(            \{\n                name: .UnlockDialog swipe tracker.,\n)}
+     {$1                allowDrag: true, // yupei: one-finger swipe (shell-overlays)\n}
+        or exit 1;
+' "$D/ui/unlockDialog.js.orig" > "$D/ui/unlockDialog.js" || {
+    echo "shell-overlays: unlockDialog.js no longer matches, using stock" >&2
+    rm -f "$D/ui/unlockDialog.js"
+}
+rm -f "$D/ui/unlockDialog.js.orig"
 exit 0

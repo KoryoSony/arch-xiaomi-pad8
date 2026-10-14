@@ -9,8 +9,9 @@ panel_power() {
 }
 
 lock_and_blank() {
-    # Panel off first, so the lock screen's slide-in animation isn't seen.
+    # Lock through logind: GNOME Shell then locks at once, without the
+    # slide-in animation that org.gnome.ScreenSaver.Lock plays. Then panel off.
+    loginctl lock-session
+    sleep 0.15
     panel_power off
-    gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
-        --method org.gnome.ScreenSaver.Lock >/dev/null
 }
