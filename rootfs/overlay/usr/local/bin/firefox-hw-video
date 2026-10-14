@@ -1,0 +1,28 @@
+#!/bin/sh
+# Hardware video decoding in Firefox on the Xiaomi Pad 8: on | off | status
+#
+# Firefox decodes video in its sandboxed media (RDD) process. The Qualcomm
+# decoder needs dma-buf memory, and on this tablet none can be had inside
+# that sandbox (it blocks /dev/dma_heap; the display driver's buffers can't be
+# CPU-mapped; the video driver can't export its own). "on" starts Firefox
+# with the media process unsandboxed: H.264/HEVC play on the hardware decoder
+# (far less CPU and battery), but a malicious video that exploits a decoder
+# bug could then run code as you. "off" (default) keeps the sandbox.
+set -e
+D=/usr/local/share/applications
+F=$D/firefox.desktop
+case ${1:-status} in
+    on)
+        [ "$(id -u)" = 0 ] || exec sudo "$0" on
+        mkdir -p $D
+        sed 's|^Exec=/usr/lib/firefox/firefox|Exec=env MOZ_DISABLE_RDD_SANDBOX=1 /usr/lib/firefox/firefox|' \
+            /usr/share/applications/firefox.desktop > $F
+        echo "Hardware video decoding in Firefox: ON (media sandbox off). Restart Firefox." ;;
+    off)
+        [ "$(id -u)" = 0 ] || exec sudo "$0" off
+        rm -f $F
+        echo "Hardware video decoding in Firefox: OFF (sandboxed). Restart Firefox." ;;
+    status)
+        [ -f $F ] && echo on || echo off ;;
+    *) echo "usage: firefox-hw-video on|off|status" >&2; exit 2 ;;
+esac

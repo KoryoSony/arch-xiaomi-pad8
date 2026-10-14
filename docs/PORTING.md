@@ -334,5 +334,10 @@ These are the things that broke the first boots of yupei, in order:
     contexts failed their init checks and WebRender fell back to software.
     Mesa is now built with glvnd (libEGL_mesa.so.0 vendor, first in the
     ld.so path). Firefox's V4L2-DRM decoder then works, but its RDD sandbox
-    blocks /dev/dma_heap: the FFmpeg patch falls back to linear GBM buffers
-    from /dev/dri/renderD128 (allowed), equally bit-exact.
+    blocks /dev/dma_heap. The FFmpeg patch's GBM fallback doesn't help
+    inside it: Mesa's GBM on this GPU goes through kgsl/zink (also denied),
+    msm GEM_NEW + PRIME works but the dmabuf can't be mmapped (EINVAL), and
+    msm_vidc has no VIDIOC_EXPBUF (ENOTTY). So Firefox HW decode is opt-in:
+    `firefox-hw-video on` writes a /usr/local firefox.desktop that sets
+    MOZ_DISABLE_RDD_SANDBOX=1 (security trade-off, documented in the README).
+    Other players use system FFmpeg/GStreamer without a sandbox.

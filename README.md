@@ -33,7 +33,7 @@ on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
 | ✅ | **Bluetooth** | WCN7750 Bluetooth core over UART (patched `hci_qca`), real device address |
 | ✅ | **Speakers** | All four SIA91xx speakers, stereo, Xiaomi tuning + speaker protection (AudioReach on the ADSP) |
 | ✅ | **Microphones** | Through the same AudioReach stack (echo cancellation not yet) |
-| ✅ | **Hardware video decoding** | H.264 / HEVC / VP9 on the Iris3 decoder; Firefox uses it for H.264 (use the *h264ify* extension for YouTube) |
+| ✅ | **Hardware video decoding** | H.264 / HEVC / VP9 on the Iris3 decoder (mpv, GStreamer/FFmpeg apps). Firefox: opt-in, see *Tips* |
 | ✅ | **Battery & charging** | Real percentage, fast charging (QC 3.5), low-battery shutdown protection |
 | ✅ | **Sensors** | Accelerometer (rotation), ambient light, proximity, compass (Qualcomm SSC) |
 | ✅ | **Power button & cover** | Tap = lock + screen off, hold = power menu, magnetic cover locks/wakes |
@@ -112,8 +112,11 @@ cable the tablet is also a network adapter: `ssh alarm@172.16.42.1`
 
 ## Tips
 
-- **YouTube in Firefox:** install the *h264ify* extension so videos play on the
-  hardware decoder instead of the CPU.
+- **Video in Firefox:** Firefox plays video on the CPU by default. To use the
+  hardware decoder (much less battery), open a terminal and type
+  `firefox-hw-video on`, then restart Firefox (`firefox-hw-video off` undoes
+  it). This turns off the sandbox of Firefox's video process, which is a bit
+  less safe. For YouTube also install the *h264ify* extension.
 - **Battery:** the backlight is the biggest consumer; 60 Hz instead of 120/144 Hz
   saves ~180 mA. Lock with the power button when you put it down.
 - **Rotation lock:** in GNOME's quick settings.
