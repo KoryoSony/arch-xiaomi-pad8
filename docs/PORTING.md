@@ -234,3 +234,9 @@ These are the things that broke the first boots of yupei, in order:
     until the real SOC (fg_master/rsoc) catches up; writes to capacity are
     ignored. Xiaomi fast charging is gated by pd_verifed (set on Android by a
     userspace adapter-authentication service).
+    Fixed since: `strategy_fg/fake_soc` (writable) overrides the reported
+    capacity, so battery-guard mirrors `raw_soc` (0.01 %) into it every 5 s.
+    MCA's current_now is negative while charging, which UPower takes as
+    "discharging"; battery-guard writes the negated value to
+    /run/yupei/battery/current_now, bind-mounted over the sysfs file in
+    upower.service only (path via /sys/class: a ':' breaks BindReadOnlyPaths).

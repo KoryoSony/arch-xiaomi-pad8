@@ -1,30 +1,53 @@
 #!/bin/sh
-# Shut down cleanly before the battery is over-discharged. Android does this at
-# the gauge's cutoff (3.25 V); nothing on Linux acted on the charger driver's
-# "critical" level, and the tablet once ran down to 2.5 V. Uses the fuel gauge
-# directly (xm_power/fg_master): the displayed percentage (UISOC) can lag.
+# Battery reporting fixes and over-discharge protection for the Xiaomi MCA
+# charger/fuel-gauge drivers, every 5 s:
+#  - Percentage: MCA's displayed SOC (UISOC) is re-estimated from voltage at
+#    boot, which reads high while charging (37% shown at a real 5%). Mirror the
+#    fuel gauge's raw_soc (0.01 %) into strategy_fg/fake_soc, which MCA then
+#    reports as the battery capacity.
+#  - Charging sign: MCA reports a negative current_now while charging; UPower
+#    then shows "discharging". Write the corrected value to $CUR, which
+#    upower.service sees in place of current_now (bind mount, see its drop-in).
+#  - Over-discharge: nothing on Linux acted on MCA's critical level and the
+#    battery once ran down to 2.5 V (Android stops at 3.25 V). Power off when
+#    it stays below CUTOFF_MV for a minute.
 FG=/sys/class/xm_power/fg_master
-CUTOFF_MV=${CUTOFF_MV:-3300}   # 3 readings in a row below this -> power off
+SFG=/sys/class/xm_power/fuelgauge/strategy_fg
+BAT=/sys/class/power_supply/battery
+CUR=/run/yupei/battery/current_now
+CUTOFF_MV=${CUTOFF_MV:-3300}
 WARN_MV=${WARN_MV:-3450}
+mkdir -p "${CUR%/*}"
+[ -e $CUR ] || echo 0 > $CUR
 low=0 warned=0
-while sleep 20; do
-    mv=$(cat $FG/vbatt 2>/dev/null) || continue
-    soc=$(cat $FG/rsoc 2>/dev/null)
-    if [ "$mv" -lt "$CUTOFF_MV" ] || { [ "$soc" = 0 ] && [ "$mv" -lt 3400 ]; }; then
+while :; do
+    raw=$(cat $SFG/raw_soc 2>/dev/null)
+    if [ -n "$raw" ] && [ "$raw" -ge 0 ]; then
+        soc=$(( (raw + 50) / 100 ))
+        [ $soc -gt 100 ] && soc=100
+        [ "$(cat $BAT/status 2>/dev/null)" = Full ] && soc=100
+        [ "$(cat $SFG/fake_soc 2>/dev/null)" = $soc ] || echo $soc > $SFG/fake_soc
+    fi
+    c=$(cat $BAT/current_now 2>/dev/null) && echo $(( -c )) > $CUR   # same inode: bind-mounted
+
+    mv=$(cat $FG/vbatt 2>/dev/null) || { sleep 5; continue; }
+    rsoc=$(cat $FG/rsoc 2>/dev/null)
+    if [ "$mv" -lt "$CUTOFF_MV" ] || { [ "$rsoc" = 0 ] && [ "$mv" -lt 3400 ]; }; then
         low=$((low + 1))
     else
         low=0
     fi
     if [ "$mv" -lt "$WARN_MV" ] && [ $warned = 0 ]; then
         warned=1
-        echo "battery-guard: battery low (${mv} mV, ${soc}%), charge now"
-        wall "Battery almost empty (${soc}%): connect a charger. The tablet will power off below ${CUTOFF_MV} mV." 2>/dev/null
+        echo "battery-guard: battery low (${mv} mV, ${rsoc}%), charge now"
+        wall "Battery almost empty (${rsoc}%): connect a charger. The tablet will power off below ${CUTOFF_MV} mV." 2>/dev/null
     elif [ "$mv" -gt $((WARN_MV + 100)) ]; then
         warned=0
     fi
-    if [ $low -ge 3 ]; then
-        echo "battery-guard: ${mv} mV, ${soc}%: powering off to protect the battery"
+    if [ $low -ge 12 ]; then
+        echo "battery-guard: ${mv} mV, ${rsoc}%: powering off to protect the battery"
         systemctl poweroff
         exit 0
     fi
+    sleep 5
 done

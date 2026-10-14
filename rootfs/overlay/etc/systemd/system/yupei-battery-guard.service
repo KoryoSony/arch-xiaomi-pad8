@@ -1,7 +1,10 @@
 [Unit]
-Description=Power off before the battery is over-discharged
+Description=Battery: real percentage, charging sign for UPower, over-discharge power-off
+Before=upower.service
 
 [Service]
+# Exists before upower.service bind-mounts it.
+ExecStartPre=/bin/sh -c 'mkdir -p /run/yupei/battery && echo 0 > /run/yupei/battery/current_now'
 ExecStart=/usr/lib/yupei/battery-guard
 Restart=always
 
