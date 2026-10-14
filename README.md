@@ -7,6 +7,8 @@
 Full desktop Linux — GNOME on the GPU, sound, Wi-Fi, Bluetooth, touch, sensors —
 on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
 
+**English** · [简体中文](README.zh-CN.md)
+
 ![status](https://img.shields.io/badge/status-ALPHA-orange)
 ![kernel](https://img.shields.io/badge/kernel-6.6.118%20GKI-blue)
 ![desktop](https://img.shields.io/badge/desktop-GNOME%2051-4a86cf)
