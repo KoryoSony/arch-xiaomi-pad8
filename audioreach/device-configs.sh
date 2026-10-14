@@ -12,7 +12,9 @@ T=$(mktemp -d)
 E=$T/etc
 mkdir -p "$E/acdbdata/tuna_mtp"
 O=$STOCK/odm/etc
-cp "$O/audio/sku_tuna/mixer_paths_tuna_mtp.xml" "$O/usecaseKvManager.xml" "$O/backend_conf.xml" "$E/"
+python3 -I "$(dirname "$0")/merge-mixer-overlay.py" "$O/audio/sku_tuna/mixer_paths_tuna_mtp.xml" \
+    "$O/audio/sku_tuna/mixer_paths_overlay_static.xml" "$E/mixer_paths_tuna_mtp.xml"
+cp "$O/usecaseKvManager.xml" "$O/backend_conf.xml" "$E/"
 cp "$STOCK/vendor/etc/card-defs.xml" "$E/"
 cp "$O/acdbdata/Mi/Mi_acdb_cal.acdb" "$O/acdbdata/Mi/Mi_workspaceFileXml.qwsp" "$E/acdbdata/tuna_mtp/"
 

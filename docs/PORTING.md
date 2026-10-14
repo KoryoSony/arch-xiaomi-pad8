@@ -264,3 +264,7 @@ These are the things that broke the first boots of yupei, in order:
     (Qualcomm camera nodes stalled its event queue: nothing was ever linked);
     PAL sinks need state.restore-props=false. Result: deep-buffer playback to
     the speaker graph (TDM to the SIA91xx amps, speaker protection on).
+    Speakers: four SIA91xx amps (SpkrLeft/Right T/B "Sipa" controls); their
+    scene/mute settings live in Xiaomi's mixer_paths_overlay_static.xml, which
+    Xiaomi's Android HAL merges into the mixer paths. Without it only one amp
+    played; audioreach/merge-mixer-overlay.py merges it the same way.
