@@ -67,7 +67,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*
         sed -i 's/^#\\?IgnorePkg *=.*/IgnorePkg = mutter mutter-devkit/' /etc/pacman.conf /etc/pacman.conf.orig
-        systemctl enable gdm yupei-display-quirks
+        systemctl enable gdm yupei-display-quirks yupei-shell-overlays
         systemctl set-default graphical.target
     fi
     dconf update 2>/dev/null || true

@@ -1,0 +1,3 @@
+# Login screen on a touch tablet: show the on-screen keyboard for text fields.
+[org/gnome/desktop/a11y/applications]
+screen-keyboard-enabled=true

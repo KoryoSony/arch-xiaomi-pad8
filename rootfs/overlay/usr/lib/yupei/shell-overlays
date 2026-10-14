@@ -1,0 +1,26 @@
+#!/bin/sh
+# Patched GNOME Shell JS files, loaded through G_RESOURCE_OVERLAYS
+# (/etc/environment.d/60-yupei-shell.conf). Rebuilt from the installed
+# gnome-shell on every boot, so updates are picked up; a patch whose code no
+# longer matches is skipped and the stock file is used.
+#
+# loginDialog.js: there are no VTs, so logind makes the new user session active
+# (and takes the display from the greeter) as soon as GDM opens it. Stock GDM
+# only starts the session after the greeter's fade-out animation completes,
+# which can then never render: login hangs. Start the session first.
+set -u
+D=/var/lib/yupei/shell-overlay
+L=$(ls /usr/lib/gnome-shell/libshell-*.so 2>/dev/null | head -1)
+rm -rf "$D" && mkdir -p "$D/gdm"
+[ -n "$L" ] || exit 0
+gresource extract "$L" /org/gnome/shell/gdm/loginDialog.js > "$D/gdm/loginDialog.js.orig" || exit 0
+perl -0pe '
+    s{(    _startSession\(serviceName\) \{\n)(        this\._bindOpacity\(\);\n(?:.*\n)*?            onComplete: \(\) => \{\n)                this\._greeter\.call_start_session_when_ready\(serviceName, true, null\)\.catch\(logError\);\n}
+     {$1        // yupei: start the session before fading out (no VTs, see shell-overlays).\n        this._greeter.call_start_session_when_ready(serviceName, true, null).catch(logError);\n$2}
+        or exit 1;
+' "$D/gdm/loginDialog.js.orig" > "$D/gdm/loginDialog.js" || {
+    echo "shell-overlays: loginDialog.js no longer matches, using stock" >&2
+    rm -f "$D/gdm/loginDialog.js"
+}
+rm -f "$D/gdm/loginDialog.js.orig"
+exit 0

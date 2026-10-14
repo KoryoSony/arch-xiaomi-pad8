@@ -215,3 +215,12 @@ These are the things that broke the first boots of yupei, in order:
     panel's DPMS state on key *down*: mutter wakes the panel on any key, so
     asking after the press always says "on" and blanked it again. Tap: lock +
     PowerSaveMode off, or wake; hold: power-off dialog; cover: lock + off / on.
+25. **GDM login hang**: without VTs, logind makes the user session active as
+    soon as GDM opens it, taking the display from the greeter; stock GNOME
+    Shell starts the session only after the greeter's fade-out completes, which
+    can then never render. `shell-overlays` (boot service) patches
+    loginDialog.js to start the session first, loaded via G_RESOURCE_OVERLAYS
+    (/etc/environment and environment.d). Autologin never had the problem.
+    The greeter reads its monitor config (scale, refresh rate) from
+    /var/lib/gdm/seat0/config/monitors.xml; the on-screen keyboard is enabled
+    via the gdm dconf profile (system-db:gdm).

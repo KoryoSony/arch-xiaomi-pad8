@@ -10,3 +10,5 @@ GALLIUM_DRIVER=zink
 MESA_LOADER_DRIVER_OVERRIDE=zink
 # No user namespaces on this kernel: GNOME's image loader cannot sandbox.
 GLYCIN_DISABLE_SANDBOX=1
+# Patched GNOME Shell login screen (/usr/lib/yupei/shell-overlays).
+G_RESOURCE_OVERLAYS=/org/gnome/shell/gdm/loginDialog.js=/var/lib/yupei/shell-overlay/gdm/loginDialog.js

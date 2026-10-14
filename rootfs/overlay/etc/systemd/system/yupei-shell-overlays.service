@@ -1,0 +1,11 @@
+[Unit]
+Description=Patch GNOME Shell's login screen for this tablet (no VTs)
+Before=gdm.service display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/yupei/shell-overlays
+
+[Install]
+WantedBy=graphical.target
