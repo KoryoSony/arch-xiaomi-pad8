@@ -279,3 +279,7 @@ These are the things that broke the first boots of yupei, in order:
     so it showed "discharging". battery-guard now follows the status every
     second (sign from status, not current) and sends a change uevent when the
     status flips.
+29. **Security defaults**: no GDM auto-login (it was a debugging leftover),
+    wheel sudo with the user's password (no NOPASSWD), root locked, SSH keys
+    only except over the USB network (172.16.42.1) for first-time setup of a
+    fresh image (alarm/alarm). setup-desktop-user asks for the password.

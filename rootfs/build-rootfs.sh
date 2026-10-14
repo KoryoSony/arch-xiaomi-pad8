@@ -34,6 +34,7 @@ bsdtar -xpf "$tarball" -C "$ROOTFS"
 
 # Overlay first: the chroot step enables units it ships.
 cp -a "$TOP/rootfs/overlay/." "$ROOTFS/"
+chmod 440 "$ROOTFS/etc/sudoers.d/10-wheel"
 
 packages=(busybox libbsd libyaml networkmanager openssh sudo vim htop usbutils pciutils
           iw wireless-regdb bluez bluez-utils libinput evtest)
@@ -63,6 +64,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Rdd --noconfirm linux-aarch64 || true
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
+    passwd -l root   # sudo from wheel users instead; SSH as root needs a key
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
     systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp
     if [ $DESKTOP = gnome ]; then
@@ -134,4 +136,4 @@ rm -f "$raw"
 mkfs.ext4 -F -L arch -d "$ROOTFS" "$raw" "$ROOTFS_IMAGE_SIZE"
 img2simg "$raw" "$OUT/userdata.img"
 rm -f "$raw"
-echo "rootfs: $OUT/userdata.img (default login alarm/alarm, root/root: change them)"
+echo "rootfs: $OUT/userdata.img (first login over USB: alarm/alarm; root is locked)"
