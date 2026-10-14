@@ -292,8 +292,6 @@ These are the things that broke the first boots of yupei, in order:
     setprop/getprop stubbed. Video is still decoded in software (Firefox).
 31. **Idle power by component** (screen on, 23 % backlight): 120 Hz 1.11 A,
     60 Hz 0.93 A, 30 Hz 0.83 A; backlight dominates (2 % 0.64 A, 50 % 1.8 A);
-    screen off 40 mA. The panel switches 30-144 Hz modes without flicker, so
-    `refresh-switcher.js` (session autostart) uses mutter's IdleMonitor:
-    input -> the rate saved in Settings, 3 s idle -> 60 Hz, 30 s idle with no
-    MPRIS player playing -> 30 Hz (temporary monitor configs). Idle watches
-    only fire on crossing, so it also checks the idle time at start.
+    screen off 40 mA. The panel switches 30-144 Hz modes without flicker
+    (an idle-based automatic switcher was tried and removed at the user's
+    request; the rate is whatever is set in Settings).

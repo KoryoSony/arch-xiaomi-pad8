@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Refresh rate switcher (Xiaomi Pad 8)
-Comment=Lower the display refresh rate when idle to save power
-Exec=gjs -m /usr/lib/yupei/refresh-switcher.js
-OnlyShowIn=GNOME;
-NoDisplay=true
-X-GNOME-Autostart-Phase=Application
