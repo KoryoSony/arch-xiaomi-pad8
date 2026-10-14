@@ -1,0 +1,21 @@
+[Unit]
+Description=ADSP sensors PD listener (Android's sscrpcd sensorspd adsp)
+# Like the audio PD: the sensor core (SSC) reads its registry and configs
+# through this listener while the ADSP boots, so it must run before
+# yupei-dsp starts the ADSP. Files it reads: /vendor/etc/sensors,
+# /odm/etc/sensors (from the stock vendor/odm images) and the factory
+# registry in /mnt/vendor/persist/sensors; it also rewrites that registry,
+# so persist (mounted read-only) gets a writable overlay there, stored in
+# /var/lib/yupei/persist-sensors: the factory partition itself is never written.
+DefaultDependencies=no
+After=yupei-firmware.service
+Before=yupei-dsp.service
+
+[Service]
+ExecStartPre=/bin/sh -c 'P=/mnt/vendor/persist/sensors W=/var/lib/yupei/persist-sensors; [ -d $P ] || exit 0; mountpoint -q $P && exit 0; mkdir -p $W/upper $W/work && mount -t overlay overlay -o lowerdir=$P,upperdir=$W/upper,workdir=$W/work $P'
+Environment="ADSP_LIBRARY_PATH=/vendor/lib/rfsa/adsp;/vendor/dsp/adsp;/vendor/dsp"
+ExecStart=/usr/local/sbin/adsprpcd sensorspd adsp
+Restart=always
+
+[Install]
+WantedBy=sysinit.target

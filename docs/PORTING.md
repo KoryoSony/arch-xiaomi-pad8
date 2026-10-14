@@ -319,3 +319,13 @@ These are the things that broke the first boots of yupei, in order:
     on different keys never merge into one drag, down at the first frame
     above 260, up below 140, 1-euro smoothing. `--replay` runs recordings
     (YUPEI_TOUCH_RECORD=file) or tools/touchsim.py scenarios offline.
+34. **Sensors / rotation**: accelerometer (LSM6DSO), light, proximity and
+    compass are in the ADSP's sensor core (SSC, QMI service 400 over QRTR).
+    iio-sensor-proxy (Arch, built with libssc) reads them once a udev rule
+    sets IIO_SENSOR_PROXY_TYPE=ssc-* (on /dev/fastrpc-adsp-secure). SSC's
+    registry was "unavailable" until `adsprpcd sensorspd adsp` (Android's
+    sscrpcd) runs before the ADSP boots, with /vendor/etc/sensors,
+    /odm/etc/sensors and /vendor/lib/rfsa/adsp from the stock images; it
+    rewrites the registry in persist, so persist/sensors gets an overlay in
+    /var/lib/yupei/persist-sensors (factory partition untouched). Mutter
+    rotates on the GPU (planes stay rotation=0), so split scanout still works.

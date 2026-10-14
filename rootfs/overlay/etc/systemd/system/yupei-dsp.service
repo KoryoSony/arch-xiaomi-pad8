@@ -1,8 +1,8 @@
 [Unit]
 Description=Start the ADSP and CDSP
 DefaultDependencies=no
-After=yupei-firmware.service yupei-pd-mapper.service yupei-audiopd.service
-Wants=yupei-pd-mapper.service yupei-audiopd.service
+After=yupei-firmware.service yupei-pd-mapper.service yupei-audiopd.service yupei-sensorspd.service
+Wants=yupei-pd-mapper.service yupei-audiopd.service yupei-sensorspd.service
 Before=sysinit.target
 
 [Service]

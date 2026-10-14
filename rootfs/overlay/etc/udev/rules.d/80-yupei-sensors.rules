@@ -1,0 +1,5 @@
+# Xiaomi Pad 8: accelerometer, light, proximity and compass live in the ADSP's
+# sensor core (SSC), reached over QRTR by iio-sensor-proxy's libssc backend
+# (no IIO devices). Announce them on the ADSP's FastRPC node and start
+# iio-sensor-proxy (screen rotation, automatic brightness).
+KERNEL=="fastrpc-adsp-secure", ENV{IIO_SENSOR_PROXY_TYPE}+="ssc-accel ssc-light ssc-proximity ssc-compass", TAG+="systemd", ENV{SYSTEMD_WANTS}+="iio-sensor-proxy.service"

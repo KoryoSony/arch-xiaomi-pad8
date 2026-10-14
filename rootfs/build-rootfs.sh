@@ -66,7 +66,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     echo xiaomi-pad8 > /etc/hostname
     passwd -l root   # sudo from wheel users instead; SSH as root needs a key
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth yupei-sensorspd
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*
@@ -92,6 +92,12 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 [ -f "$OUT/audioreach.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach.tar.gz" \
     --exclude=./usr/include --exclude='*.la' --exclude='*.a'
 [ -f "$OUT/audioreach-yupei-configs.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach-yupei-configs.tar.gz"
+
+# Sensor core (SSC) files the ADSP reads through yupei-sensorspd: algorithm
+# modules (rfsa) and the sensor configs, from the stock vendor/odm images.
+for d in vendor/lib/rfsa/adsp vendor/etc/sensors odm/etc/sensors; do
+    mkdir -p "$ROOTFS/$d" && cp -a "$STOCK/$d/." "$ROOTFS/$d/"
+done
 
 # Qualcomm's power tuning script for this SoC (/usr/lib/yupei/power-tuning).
 install -Dm644 "$STOCK/vendor/bin/init.kernel.post_boot-tuna_default_2_3_2_1.sh" \
