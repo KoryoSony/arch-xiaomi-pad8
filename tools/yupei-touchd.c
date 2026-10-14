@@ -52,6 +52,12 @@ static int T_KEEP = 180;    // an existing finger survives down to this
 static int T_STUCK = 150;   // baseline below raw by this much: baseline was taken
 			    // with a finger on it, reset it
 static double MATCH_PX = 450, SMOOTH = 0.45;
+// Ghost touches: a charger shifts the panel's readings, and the slow baseline
+// tracking below never follows a jump that big, so one spot reads as a
+// finger forever (it toggled GNOME's calendar under the clock). Re-baseline
+// when the charger state changes, and absorb any cell that stays raised.
+#define STUCK_FRAMES (8 * 120)   // ~8 s at the panel's ~120 Hz frame rate
+#define CHARGER_ONLINE "/sys/class/power_supply/usb/online"
 static int GRACE = 2;       // frames a finger may go unseen before it is lifted:
 			    // a fast swipe weakens the signal for a frame or two,
 			    // and lifting there splits one swipe into many
@@ -121,7 +127,8 @@ int main(int argc, char **argv)
 
 	static float base[MAXCELLS];
 	static int sig[MAXCELLS];
-	int have_base = 0;
+	static int raised[MAXCELLS];
+	int have_base = 0, charger = -1, nframe = 0, rebase_pending = 0;
 
 	for (;;) {
 		struct pollfd p = { .fd = fd, .events = POLLPRI };
@@ -140,8 +147,29 @@ int main(int argc, char **argv)
 			continue;
 		int16_t *m = (int16_t *)(raw + 64);
 
+		if (++nframe % 120 == 0) {   // ~1 s: charger plugged/unplugged?
+			char c = 0;
+			int f = open(CHARGER_ONLINE, O_RDONLY | O_CLOEXEC);
+			if (f >= 0) {
+				if (read(f, &c, 1) == 1 && charger >= 0 && (c == '1') != charger)
+					rebase_pending = 1;
+				charger = c == '1';
+				close(f);
+			}
+		}
+		if (rebase_pending) {   // wait until nothing touches the screen
+			int any = 0;
+			for (int f = 0; f < MAXF; f++)
+				any |= fing[f].active;
+			if (!any) {
+				have_base = 0;
+				rebase_pending = 0;
+				fprintf(stderr, "yupei-touchd: charger %s, re-baselining\n",
+					charger ? "connected" : "removed");
+			}
+		}
 		if (!have_base) {
-			for (int i = 0; i < N; i++) base[i] = m[i];
+			for (int i = 0; i < N; i++) { base[i] = m[i]; raised[i] = 0; }
 			have_base = 1;
 			continue;
 		}
@@ -154,6 +182,15 @@ int main(int argc, char **argv)
 				s = 0;
 			} else if (s < T_KEEP / 2) {
 				base[i] += (m[i] - base[i]) * 0.02f;   // slow drift tracking
+			}
+			if (s >= T_KEEP / 2) {
+				if (++raised[i] > STUCK_FRAMES) {   // nobody presses one spot that long
+					base[i] = m[i];
+					s = 0;
+					raised[i] = 0;
+				}
+			} else {
+				raised[i] = 0;
 			}
 			sig[i] = s;
 			if (s > maxsig) maxsig = s;
