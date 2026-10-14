@@ -1,0 +1,14 @@
+#!/bin/sh
+# Android starts the DSPs from init scripts once firmware is reachable and
+# pd-mapper / audioadsprpcd are running: the ADSP's audio PD looks up its
+# services and loads modules through them while it boots, and its audio
+# framework (SPF/APM) never comes up if they are missing. The ADSP also runs
+# the USB-C/charger manager (pmic_glink). The Wi-Fi subsystem (wpss) is
+# started by yupei-wifi.
+for r in /sys/class/remoteproc/remoteproc*; do
+    case $(cat "$r/name") in
+        *adsp*|*cdsp*)
+            [ "$(cat "$r/state")" = offline ] && echo start > "$r/state" && echo "started $(cat "$r/name")" ;;
+    esac
+done
+exit 0

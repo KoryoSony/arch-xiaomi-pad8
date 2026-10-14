@@ -1,0 +1,14 @@
+[Unit]
+Description=ADSP audio PD listener (Android's audioadsprpcd audiopd)
+DefaultDependencies=no
+After=yupei-firmware.service
+Before=yupei-dsp.service
+
+[Service]
+# Audio DSP modules: the dsp partition, then the vendor image's rfsa copies.
+Environment="ADSP_LIBRARY_PATH=/vendor/dsp/adsp;/vendor/dsp;/vendor/lib/rfsa/adsp;/usr/lib/rfsa/adsp"
+ExecStart=/usr/local/sbin/adsprpcd audiopd adsp
+Restart=always
+
+[Install]
+WantedBy=sysinit.target

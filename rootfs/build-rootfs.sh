@@ -35,7 +35,7 @@ bsdtar -xpf "$tarball" -C "$ROOTFS"
 # Overlay first: the chroot step enables units it ships.
 cp -a "$TOP/rootfs/overlay/." "$ROOTFS/"
 
-packages=(busybox networkmanager openssh sudo vim htop usbutils pciutils
+packages=(busybox libbsd libyaml networkmanager openssh sudo vim htop usbutils pciutils
           iw wireless-regdb bluez bluez-utils libinput evtest)
 case $DESKTOP in
     none) ;;
@@ -64,7 +64,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*
@@ -84,8 +84,11 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 # GPU: Mesa with Turnip on KGSL + Zink (mesa/build-mesa.sh), if built.
 [ -f "$OUT/mesa-yupei.tar.zst" ] && zstd -dc "$OUT/mesa-yupei.tar.zst" | tar -C "$ROOTFS" -xf -
 
+# Qualcomm FastRPC userspace (fastrpc/build-fastrpc.sh): the ADSP audio PD listener.
+[ -f "$OUT/fastrpc.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/fastrpc.tar.gz"
+
 # On-device helpers (tools/build-tools.sh, qbootctl/build-qbootctl.sh), if built.
-for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl; do
+for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl pd-mapper qrtr-lookup; do
     [ -f "$OUT/$t" ] && install -Dm755 "$OUT/$t" "$ROOTFS/usr/local/bin/$t"
 done
 

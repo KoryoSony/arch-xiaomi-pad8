@@ -240,3 +240,14 @@ These are the things that broke the first boots of yupei, in order:
     "discharging"; battery-guard writes the negated value to
     /run/yupei/battery/current_now, bind-mounted over the sysfs file in
     upower.service only (path via /sys/class: a ':' breaks BindReadOnlyPaths).
+27. **Audio, stage 1 (sound card)**: the ADSP's audio PD stays down ("q6 state
+    is down") without a service locator, and its audio framework (SPF/APM)
+    never answers unless the audio PD listener runs while the ADSP boots.
+    Android order, reproduced: yupei-firmware (mounts) -> yupei-pd-mapper
+    (linux-msm pd-mapper; patched: it chopped the last character of a
+    firmware path written without a newline) + yupei-audiopd (quic/fastrpc
+    `adsprpcd audiopd adsp`, ADSP_LIBRARY_PATH=/vendor/dsp/adsp) ->
+    yupei-dsp (starts ADSP/CDSP). Result: card `tuna-mtp-snd-card` with 54
+    back-end PCMs. Playback needs the AudioReach userspace (ARGS/GSL + AGM +
+    PAL) to build DSP graphs from the ACDB (vendor/etc/acdbdata,
+    odm/etc/acdbdata/Mi/Mi_acdb_cal.acdb): next stage.

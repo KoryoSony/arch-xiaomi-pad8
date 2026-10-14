@@ -1,0 +1,12 @@
+[Unit]
+Description=Qualcomm protection-domain mapper (DSP service locator)
+DefaultDependencies=no
+After=yupei-firmware.service
+Before=yupei-dsp.service
+
+[Service]
+ExecStart=/usr/local/bin/pd-mapper
+Restart=always
+
+[Install]
+WantedBy=sysinit.target

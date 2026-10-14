@@ -27,13 +27,6 @@ mnt bluetooth vfat "/vendor/bt_firmware"  ro,shortname=lower
 mkdir -p /mnt/vendor/persist
 d=$(dev_for persist) && { mountpoint -q /mnt/vendor/persist || mount -t ext4 -o ro,noexec,nosuid,nodev "$d" /mnt/vendor/persist; }
 
-# Android starts the DSPs from init scripts once firmware is reachable. The
-# ADSP runs the USB-C/charger manager (pmic_glink), so start it and the CDSP.
-# The Wi-Fi subsystem (wpss) is left alone until it has been tested.
-for r in /sys/class/remoteproc/remoteproc*; do
-    case $(cat "$r/name") in
-        *adsp*|*cdsp*)
-            [ "$(cat "$r/state")" = offline ] && echo start > "$r/state" && echo "started $(cat "$r/name")" ;;
-    esac
-done
+# The DSPs are started by yupei-dsp.service, after pd-mapper and the audio PD
+# listener (as in Android's init), see /usr/lib/yupei/start-dsps.
 exit 0
