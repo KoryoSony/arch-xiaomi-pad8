@@ -1,0 +1,30 @@
+#!/bin/sh
+# Shut down cleanly before the battery is over-discharged. Android does this at
+# the gauge's cutoff (3.25 V); nothing on Linux acted on the charger driver's
+# "critical" level, and the tablet once ran down to 2.5 V. Uses the fuel gauge
+# directly (xm_power/fg_master): the displayed percentage (UISOC) can lag.
+FG=/sys/class/xm_power/fg_master
+CUTOFF_MV=${CUTOFF_MV:-3300}   # 3 readings in a row below this -> power off
+WARN_MV=${WARN_MV:-3450}
+low=0 warned=0
+while sleep 20; do
+    mv=$(cat $FG/vbatt 2>/dev/null) || continue
+    soc=$(cat $FG/rsoc 2>/dev/null)
+    if [ "$mv" -lt "$CUTOFF_MV" ] || { [ "$soc" = 0 ] && [ "$mv" -lt 3400 ]; }; then
+        low=$((low + 1))
+    else
+        low=0
+    fi
+    if [ "$mv" -lt "$WARN_MV" ] && [ $warned = 0 ]; then
+        warned=1
+        echo "battery-guard: battery low (${mv} mV, ${soc}%), charge now"
+        wall "Battery almost empty (${soc}%): connect a charger. The tablet will power off below ${CUTOFF_MV} mV." 2>/dev/null
+    elif [ "$mv" -gt $((WARN_MV + 100)) ]; then
+        warned=0
+    fi
+    if [ $low -ge 3 ]; then
+        echo "battery-guard: ${mv} mV, ${soc}%: powering off to protect the battery"
+        systemctl poweroff
+        exit 0
+    fi
+done

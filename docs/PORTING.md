@@ -224,3 +224,13 @@ These are the things that broke the first boots of yupei, in order:
     The greeter reads its monitor config (scale, refresh rate) from
     /var/lib/gdm/seat0/config/monitors.xml; the on-screen keyboard is enabled
     via the gdm dconf profile (system-db:gdm).
+26. **Battery safety**: the MCA charger driver signals CAPACITY_LEVEL_CRITICAL
+    ("Trigger Android shutdown") but nothing on Linux acted (UPower's Auto
+    action needs suspend/hibernate): the battery ran down to 2.5 V.
+    `yupei-battery-guard` powers off below 3.3 V (fuel gauge
+    xm_power/fg_master/vbatt, rsoc); UPower CriticalPowerAction=PowerOff.
+    The displayed percentage (MCA UISOC) is restored from the last shutdown
+    and does not fall while charging, so after a deep discharge it reads high
+    until the real SOC (fg_master/rsoc) catches up; writes to capacity are
+    ignored. Xiaomi fast charging is gated by pd_verifed (set on Android by a
+    userspace adapter-authentication service).

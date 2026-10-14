@@ -1,0 +1,9 @@
+[Unit]
+Description=Power off before the battery is over-discharged
+
+[Service]
+ExecStart=/usr/lib/yupei/battery-guard
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

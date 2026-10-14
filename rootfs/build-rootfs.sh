@@ -62,7 +62,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*
