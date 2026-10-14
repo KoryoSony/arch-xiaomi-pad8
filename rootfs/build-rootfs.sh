@@ -86,6 +86,10 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 
 # Qualcomm FastRPC userspace (fastrpc/build-fastrpc.sh): the ADSP audio PD listener.
 [ -f "$OUT/fastrpc.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/fastrpc.tar.gz"
+# AudioReach userspace + Xiaomi's audio configs (audioreach/*.sh): sound.
+[ -f "$OUT/audioreach.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach.tar.gz" \
+    --exclude=./usr/include --exclude='*.la' --exclude='*.a'
+[ -f "$OUT/audioreach-yupei-configs.tar.gz" ] && tar -C "$ROOTFS" -xzf "$OUT/audioreach-yupei-configs.tar.gz"
 
 # On-device helpers (tools/build-tools.sh, qbootctl/build-qbootctl.sh), if built.
 for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl pd-mapper qrtr-lookup; do

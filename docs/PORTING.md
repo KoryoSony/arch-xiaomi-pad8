@@ -251,3 +251,16 @@ These are the things that broke the first boots of yupei, in order:
     back-end PCMs. Playback needs the AudioReach userspace (ARGS/GSL + AGM +
     PAL) to build DSP graphs from the ACDB (vendor/etc/acdbdata,
     odm/etc/acdbdata/Mi/Mi_acdb_cal.acdb): next stage.
+28. **Audio, stage 2 (AudioReach userspace)**: audioreach/build-audioreach.sh
+    builds tinyalsa (CMake, with plugins: PAL's virtual card 100 is served by
+    AGM's tinyalsa plugins), graph services (`--with-qcom
+    --with-audio_dma_support`: DMA-BUF from /dev/dma_heap/system mapped by
+    Xiaomi's audpkt_ion, /dev/msm_audio_ion), AGM, PAL and the PipeWire
+    plugin. audioreach/device-configs.sh adapts Xiaomi's odm configs
+    (resourcemanager needs <config_max_sessions> on Linux; Android-only
+    context manager / connectivity proxy off) and installs the Mi ACDB (AGM
+    takes exactly one .acdb + .qwsp). udev: aud_pasthru_adsp, apr_apps2,
+    msm_audio_ion* -> audio group. WirePlumber: v4l2/libcamera monitors off
+    (Qualcomm camera nodes stalled its event queue: nothing was ever linked);
+    PAL sinks need state.restore-props=false. Result: deep-buffer playback to
+    the speaker graph (TDM to the SIA91xx amps, speaker protection on).
