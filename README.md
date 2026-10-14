@@ -46,63 +46,69 @@ on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
 | ❌ | **Suspend** | The screen-off idle state is used instead (~40 mA) |
 | ❌ | **IR blaster** | Not started |
 
-## Downloads
+## Install it (easy version)
 
-Grab the files from the **[Releases](../../releases)** page:
+> [!CAUTION]
+> Installing **erases everything** on the tablet: Android, apps, photos.
+> Save anything you want to keep first.
 
-| File | Flash to |
-|---|---|
-| `boot.img` | `boot` — Linux kernel |
-| `init_boot.img` | `init_boot` — initramfs |
-| `userdata.img.zst` (split into `.part-*` if large) | `userdata` — the Arch Linux system (sparse image) |
-| `SHA256SUMS` | checksums |
+### Before you start (only once)
 
-## Requirements
+1. **Unlock the tablet's bootloader** with Xiaomi's *Mi Unlock* tool.
+   Xiaomi makes you wait a few days the first time. If you already did this, skip it.
+2. **Check the HyperOS version.** On the tablet open **Settings → About
+   tablet**. It must say **OS4.0.5.0.XPZCNXM**. If it says something else,
+   first install that version with Xiaomi's *fastboot ROM* for the Pad 8
+   (`yupei`, China, OS4.0.5.0) and its `flash_all` script.
+3. You need a **computer** (Windows, Mac or Linux) and a **USB-C cable**.
 
-- **Xiaomi Pad 8 (`yupei`)** with an **unlocked bootloader** (Mi Unlock).
-- **HyperOS OS4.0.5.0.XPZCNXM** installed. The kernel and vendor modules must
-  match this exact build. Flash it first with Xiaomi's fastboot ROM
-  (`flash_all.sh`) if you are on anything else — **this also keeps the stock
-  `vbmeta`, which this bootloader requires** (a "verification disabled"
-  vbmeta is rejected and the tablet won't boot).
-- A computer with `fastboot` (Android platform-tools) and `zstd`.
+### Install
 
-## Install
+1. Open the **[Releases](../../releases)** page and download **all the files**
+   of the newest release into **one folder** on your computer:
+   `boot.img`, `init_boot.img`, `userdata.part1.img`, `userdata.part2.img`, …
+   and the installer for your computer.
+2. **Start the installer:**
+   - **Windows:** double-click **`Install-Windows.bat`**
+   - **Mac:** right-click **`Install-Mac.command`** → **Open**
+   - **Linux:** run **`./install-linux.sh`** in a terminal
+3. **Do what it says.** It will tell you to:
+   - turn the tablet **off**,
+   - hold **Power + Volume Down** until you see the **bunny** (fastboot mode),
+   - plug the tablet into the computer.
+4. When it asks, type **`YES`**. Wait a few minutes. **Don't unplug the cable.**
+5. The tablet restarts by itself. The first start takes about a minute.
+   Then it asks for your **language**, **Wi-Fi**, and a **name and password**
+   for you. That's it!
 
-> All Android data is erased.
+The installer gets Google's official `fastboot` tool by itself, checks it is
+really a Xiaomi Pad 8 and that it is unlocked, and changes nothing until you
+type `YES`.
 
-1. **Get the images** and check them:
-   ```sh
-   cat userdata.img.zst.part-* > userdata.img.zst   # only if it was split
-   sha256sum -c SHA256SUMS
-   zstd -d userdata.img.zst                         # -> userdata.img
-   ```
-2. **Reboot to fastboot**: power off, then hold **Power + Volume Down**.
-3. **Flash** (current slot, stock vbmeta stays):
-   ```sh
-   fastboot getvar current-slot     # just to see it; flash goes to the current slot
-   fastboot flash boot boot.img
-   fastboot flash init_boot init_boot.img
-   fastboot flash userdata userdata.img
-   fastboot reboot
-   ```
-4. **First boot** takes about a minute (the root filesystem grows to fill the
-   storage). **GNOME Initial Setup** then asks for your language, Wi-Fi and a
-   user account with a password.
+### Help!
 
-### Remote access
+- **The installer waits forever for the tablet (Windows):** install Xiaomi's
+  USB driver (it comes with *Mi Unlock* or *Mi Flash*), then try again.
+- **The tablet only shows the fastboot bunny after some restarts:** run
+  `fastboot set_active a` then `fastboot reboot` (with the `fastboot` inside the
+  `platform-tools` folder the installer made).
+- **I want Android back:** install the stock fastboot ROM with Xiaomi's
+  `flash_all` script, the same way as in step 2 of *Before you start*.
 
-Plug the tablet into a computer over USB-C: it shows up as a USB network
-adapter. For first-time setup you can log in with `ssh alarm@172.16.42.1`
-(password `alarm`) — **passwords only work over the USB cable**, Wi-Fi SSH is
-key-only. Change or lock that account after setup (`sudo passwd -l alarm`).
+### For experts
 
-### If something goes wrong
-
-- **Stuck in fastboot after boots:** `fastboot set_active a && fastboot reboot`
-  resets the boot slot (fixed in this build: the slot is marked successful on
-  every boot).
-- **Back to Android:** flash the stock ROM with Xiaomi's `flash_all.sh`.
+The images are plain fastboot images (the current slot is used, the stock
+`vbmeta` stays — this bootloader rejects a "verification disabled" one):
+```sh
+fastboot flash boot boot.img
+fastboot flash init_boot init_boot.img
+fastboot flash userdata userdata.part1.img   # then part2, part3, ... in order
+fastboot reboot
+```
+The `userdata` parts are pieces of one sparse image (each one fills in its own
+blocks and leaves the rest alone). `SHA256SUMS` has the checksums. Over a USB
+cable the tablet is also a network adapter: `ssh alarm@172.16.42.1`
+(password `alarm`, USB only — Wi-Fi SSH takes keys only).
 
 ## Tips
 
