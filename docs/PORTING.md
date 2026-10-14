@@ -312,3 +312,10 @@ These are the things that broke the first boots of yupei, in order:
     with Wi-Fi): 3 Mbps is tried first, then 115200. bt_power (the chip's
     power) is a bluetooth rfkill that GNOME's toggle blocks too, so the
     service detaches on block and re-attaches on unblock.
+33. **Touch decoder v2** (tools/yupei-touchd.c): every frame is processed (no
+    "newest only"), contacts get Gaussian sub-cell positions (no inward bias
+    at the edges), fingers are matched around their predicted position
+    (radius 160 px + speed; separate keys are >= 250 px apart) so quick taps
+    on different keys never merge into one drag, down at the first frame
+    above 260, up below 140, 1-euro smoothing. `--replay` runs recordings
+    (YUPEI_TOUCH_RECORD=file) or tools/touchsim.py scenarios offline.
