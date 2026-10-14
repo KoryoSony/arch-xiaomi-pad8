@@ -1,13 +1,19 @@
 <div align="center">
 
+<a href="README.md"><img alt="English" src="https://img.shields.io/badge/%E2%9C%93%20English-0057b8?style=for-the-badge&logo=googletranslate&logoColor=white" height="44"></a>
+&nbsp;
+<a href="README.zh-CN.md"><img alt="简体中文" src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-6e7781?style=for-the-badge&logo=googletranslate&logoColor=white" height="44"></a>
+
+</div>
+
+<div align="center">
+
 # Arch Linux ARM for the Xiaomi Pad 8
 
 **`yupei` · Snapdragon 8s Gen 4 (SM8735) · Adreno 825 · 3.2K 144 Hz**
 
 Full desktop Linux — GNOME on the GPU, sound, Wi-Fi, Bluetooth, touch, sensors —
 on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
-
-**English** · [简体中文](README.zh-CN.md)
 
 ![status](https://img.shields.io/badge/status-ALPHA-orange)
 ![kernel](https://img.shields.io/badge/kernel-6.6.118%20GKI-blue)
