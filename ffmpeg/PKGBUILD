@@ -16,7 +16,7 @@
 
 pkgname=ffmpeg
 pkgver=9.0.2
-pkgrel=2.1  # yupei: V4L2 M2M with dma-buf buffers + DRM PRIME (Qualcomm msm_vidc)
+pkgrel=2.2  # yupei: V4L2 M2M with dma-buf buffers + DRM PRIME (Qualcomm msm_vidc)
 epoch=2
 pkgdesc='Complete solution to record, convert and stream audio and video'
 arch=(x86_64)

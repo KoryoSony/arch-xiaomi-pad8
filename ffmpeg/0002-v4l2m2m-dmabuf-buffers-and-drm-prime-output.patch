@@ -1,12 +1,13 @@
 diff --git a/libavcodec/v4l2_buffers.c b/libavcodec/v4l2_buffers.c
-index f96c267..29a1bdb 100644
+index f96c267..9e6a971 100644
 --- a/libavcodec/v4l2_buffers.c
 +++ b/libavcodec/v4l2_buffers.c
-@@ -23,7 +23,12 @@
+@@ -23,7 +23,13 @@
  
  #include <linux/videodev2.h>
  #include <sys/ioctl.h>
 +#include <fcntl.h>
++#include <dlfcn.h>
  #include <sys/mman.h>
 +#include <linux/dma-buf.h>
 +#include <linux/dma-heap.h>
@@ -15,7 +16,7 @@ index f96c267..29a1bdb 100644
  #include <unistd.h>
  #include <fcntl.h>
  #include <poll.h>
-@@ -306,6 +311,7 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
+@@ -306,6 +312,7 @@ static int v4l2_bufref_to_buf(V4L2Buffer *out, int plane, const uint8_t* data, i
      length = out->plane_info[plane].length;
      bytesused = FFMIN(size+offset, length);
  
@@ -23,7 +24,7 @@ index f96c267..29a1bdb 100644
      memcpy((uint8_t*)out->plane_info[plane].mm_addr+offset, data, FFMIN(size, length-offset));
  
      if (V4L2_TYPE_IS_MULTIPLANAR(out->buf.type)) {
-@@ -438,6 +444,49 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
+@@ -438,6 +445,49 @@ int ff_v4l2_buffer_avframe_to_buf(const AVFrame *frame, V4L2Buffer *out)
      return v4l2_buffer_swframe_to_buf(frame, out);
  }
  
@@ -73,7 +74,7 @@ index f96c267..29a1bdb 100644
  int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
  {
      int ret;
-@@ -445,7 +494,10 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
+@@ -445,7 +495,10 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
      av_frame_unref(frame);
  
      /* 1. get references to the actual data */
@@ -85,7 +86,7 @@ index f96c267..29a1bdb 100644
      if (ret)
          return ret;
  
-@@ -515,11 +567,97 @@ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
+@@ -515,11 +568,143 @@ int ff_v4l2_buffer_avpkt_to_buf(const AVPacket *pkt, V4L2Buffer *out)
      return 0;
  }
  
@@ -105,9 +106,55 @@ index f96c267..29a1bdb 100644
 +                                (write ? DMA_BUF_SYNC_WRITE : DMA_BUF_SYNC_READ));
 +}
 +
++/* Fallback when the DMA heaps are not reachable (Firefox's media sandbox only
++ * allows /dev/dri and /dev/video*): a linear GBM buffer object from the DRM
++ * render node, exported as a dma-buf. libgbm is loaded at runtime.
++ */
++struct gbm_device;
++struct gbm_bo;
++static int v4l2_gbm_alloc(size_t len)
++{
++    static void *lib;
++    static struct gbm_device *dev;
++    static struct gbm_device *(*create_device)(int);
++    static struct gbm_bo *(*bo_create)(struct gbm_device *, uint32_t, uint32_t, uint32_t, uint32_t);
++    static int (*bo_get_fd)(struct gbm_bo *);
++    static void (*bo_destroy)(struct gbm_bo *);
++    struct gbm_bo *bo;
++    uint32_t w = 4096, h;
++    int fd;
++
++    if (!dev) {
++        int drm = open("/dev/dri/renderD128", O_RDWR);
++        if (drm < 0)
++            return -1;
++        lib = dlopen("libgbm.so.1", RTLD_NOW | RTLD_LOCAL);
++        if (!lib) { close(drm); return -1; }
++        create_device = dlsym(lib, "gbm_create_device");
++        bo_create     = dlsym(lib, "gbm_bo_create");
++        bo_get_fd     = dlsym(lib, "gbm_bo_get_fd");
++        bo_destroy    = dlsym(lib, "gbm_bo_destroy");
++        if (!create_device || !bo_create || !bo_get_fd || !bo_destroy ||
++            !(dev = create_device(drm))) {
++            close(drm);
++            return -1;
++        }
++    }
++    h = (len + w - 1) / w;
++    /* GBM_FORMAT_R8, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING */
++    bo = bo_create(dev, w, h, MKTAG('R', '8', ' ', ' '), (1 << 4) | (1 << 2));
++    if (!bo)
++        return -1;
++    fd = bo_get_fd(bo);
++    bo_destroy(bo);   /* the dma-buf keeps the memory */
++    return fd;
++}
++
 +static int v4l2_dmabuf_alloc(size_t len)
 +{
 +    static const char *heaps[] = { "/dev/dma_heap/system", "/dev/dma_heap/qcom,system" };
++    if (getenv("FFMPEG_V4L2_GBM"))
++        return v4l2_gbm_alloc(len);
 +    for (int i = 0; i < FF_ARRAY_ELEMS(heaps); i++) {
 +        struct dma_heap_allocation_data alloc = {
 +            .len = len, .fd_flags = O_RDWR,
@@ -121,7 +168,7 @@ index f96c267..29a1bdb 100644
 +        }
 +        close(heap);
 +    }
-+    return -1;
++    return v4l2_gbm_alloc(len);
 +}
 +
 +static int v4l2_buffer_initialize_dmabuf(V4L2Buffer *avbuf, int index)
@@ -183,7 +230,7 @@ index f96c267..29a1bdb 100644
      avbuf->buf.memory = V4L2_MEMORY_MMAP;
      avbuf->buf.type = ctx->type;
      avbuf->buf.index = index;
-@@ -588,6 +726,20 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
+@@ -588,6 +773,20 @@ int ff_v4l2_buffer_enqueue(V4L2Buffer* avbuf)
  
      avbuf->buf.flags = avbuf->flags;
  

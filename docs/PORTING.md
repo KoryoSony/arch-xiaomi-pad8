@@ -329,3 +329,10 @@ These are the things that broke the first boots of yupei, in order:
     rewrites the registry in persist, so persist/sensors gets an overlay in
     /var/lib/yupei/persist-sensors (factory partition untouched). Mutter
     rotates on the GPU (planes stay rotation=0), so split scanout still works.
+35. **Firefox GPU + video**: our standalone libEGL (non-glvnd Mesa) left
+    Firefox's desktop GL (through glvnd's libGL) without a driver: its
+    contexts failed their init checks and WebRender fell back to software.
+    Mesa is now built with glvnd (libEGL_mesa.so.0 vendor, first in the
+    ld.so path). Firefox's V4L2-DRM decoder then works, but its RDD sandbox
+    blocks /dev/dma_heap: the FFmpeg patch falls back to linear GBM buffers
+    from /dev/dri/renderD128 (allowed), equally bit-exact.
