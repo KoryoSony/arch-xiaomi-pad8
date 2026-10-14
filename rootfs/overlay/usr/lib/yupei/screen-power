@@ -1,0 +1,16 @@
+# Sourced by power-short and cover: panel power through mutter, which owns the
+# display (org.gnome.Mutter.DisplayConfig PowerSaveMode: 0 = on, 3 = off).
+panel_power() {
+    case $1 in on) m=0 ;; *) m=3 ;; esac
+    gdbus call --session --dest org.gnome.Mutter.DisplayConfig \
+        --object-path /org/gnome/Mutter/DisplayConfig \
+        --method org.freedesktop.DBus.Properties.Set \
+        org.gnome.Mutter.DisplayConfig PowerSaveMode "<int32 $m>" >/dev/null
+}
+
+lock_and_blank() {
+    gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
+        --method org.gnome.ScreenSaver.Lock >/dev/null
+    sleep 0.6   # let the lock screen slide in first
+    panel_power off
+}

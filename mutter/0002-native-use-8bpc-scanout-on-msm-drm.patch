@@ -1,0 +1,47 @@
+diff --git a/src/backends/native/meta-onscreen-native.c b/src/backends/native/meta-onscreen-native.c
+--- a/src/backends/native/meta-onscreen-native.c
++++ b/src/backends/native/meta-onscreen-native.c
+@@ -2887,6 +2887,22 @@ static const uint32_t default_formats[] = {
+   GBM_FORMAT_ARGB8888,
+ };
+ 
++/* MUTTER_DISABLE_10BPC=0/1 forces it off/on; by default on on msm_drm. */
++static gboolean
++scanout_lacks_10bpc (CoglOnscreen *onscreen)
++{
++  MetaOnscreenNative *onscreen_native = META_ONSCREEN_NATIVE (onscreen);
++  MetaKmsCrtc *kms_crtc =
++    meta_crtc_kms_get_kms_crtc (META_CRTC_KMS (onscreen_native->crtc));
++  const char *env = g_getenv ("MUTTER_DISABLE_10BPC");
++
++  if (env)
++    return g_strcmp0 (env, "0") != 0;
++
++  return g_strcmp0 (meta_kms_device_get_driver_name (meta_kms_crtc_get_device (kms_crtc)),
++                    "msm_drm") == 0;
++}
++
+ static gboolean
+ choose_onscreen_egl_config (CoglOnscreen  *onscreen,
+                             EGLConfig     *out_config,
+@@ -2907,6 +2923,20 @@ choose_onscreen_egl_config (CoglOnscreen  *onscreen,
+   cogl_display_egl_determine_attributes (COGL_DISPLAY_EGL (cogl_display),
+                                          attrs);
+ 
++  /* Qualcomm SDE (msm_drm) planes advertise 10 bpc formats, but cannot make
++   * framebuffers from the GPU's 10 bpc buffers (drmModeAddFB2 fails with
++   * ENXIO), so the first modeset fails and the panel stays dark. Use 8 bpc.
++   */
++  if (scanout_lacks_10bpc (onscreen))
++    return meta_renderer_native_choose_gbm_format (kms_plane,
++                                                   renderer_egl,
++                                                   attrs,
++                                                   default_formats + 4,
++                                                   G_N_ELEMENTS (default_formats) - 4,
++                                                   "surface",
++                                                   out_config,
++                                                   error);
++
+   /* Secondary GPU contexts use GLES3, which doesn't guarantee that 10 bpc
+    * formats without alpha are renderable
+    */

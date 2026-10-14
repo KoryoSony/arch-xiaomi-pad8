@@ -197,3 +197,21 @@ These are the things that broke the first boots of yupei, in order:
     0.7 s hold to the power-off dialog. The panel's session shows up as a
     MetaScreenCastSessionHandle + MetaRemoteDesktopSessionHandle pair; the
     indicator patch skips handles paired within 2 s.
+22. **Boot slot**: the bootloader gives each A/B slot 7 attempts and Android
+    marks a boot successful once it is up. Without that, slot a ends
+    unbootable after 7 Arch boots and the tablet stays in fastboot
+    (`fastboot getvar slot-unbootable:a` = yes; `fastboot set_active a`
+    resets it). `yupei-boot-success.service` runs `qbootctl -m`
+    (qbootctl/build-qbootctl.sh) on every boot.
+23. **Native GNOME (GDM)**: replaces the presenter. Needs (a) our Mesa ahead of
+    Arch's for every program (`/etc/ld.so.conf.d/00-yupei-mesa.conf`): Arch's
+    GBM on msm_drm makes buffers the display rejects (drmModeAddFB ENXIO), so
+    the panel stays dark; (b) mutter patch 0002: msm_drm planes advertise 10
+    bpc formats but AddFB fails on them, so use 8 bpc; (c) `TAG+="uaccess"` on
+    kgsl/dma_heap, since GDM's greeter runs as a dynamic user
+    (gdm-greeter, uid 60578) outside the render group.
+24. **Power key / cover**: logind ignores both; `yupei-powerkey` (session
+    autostart) reads pmic_pwrkey and the xiaomi-hall SW_LID. It samples the
+    panel's DPMS state on key *down*: mutter wakes the panel on any key, so
+    asking after the press always says "on" and blanked it again. Tap: lock +
+    PowerSaveMode off, or wake; hold: power-off dialog; cover: lock + off / on.

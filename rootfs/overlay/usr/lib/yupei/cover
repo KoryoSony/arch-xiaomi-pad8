@@ -1,0 +1,8 @@
+#!/bin/sh
+# Native GNOME: magnetic cover (xiaomi-hall lid switch, from yupei-powerkey).
+# Closed -> lock and switch the panel off; opened -> switch it on (lock screen).
+. /usr/lib/yupei/screen-power
+case $1 in
+    close) lock_and_blank ;;
+    open)  panel_power on ;;
+esac

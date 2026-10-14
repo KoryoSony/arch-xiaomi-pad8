@@ -74,6 +74,6 @@ exec dbus-run-session -- sh -c '
       done ) &
     # gnome-session stand-in for the power menu, and the power key handler.
     ( while true; do gjs -m /usr/lib/yupei/yupei-session-manager.js; sleep 2; done ) &
-    ( while true; do yupei-powerkey; sleep 2; done ) &
+    ( while true; do YUPEI_POWERKEY_SHORT=/usr/lib/yupei/screen-toggle YUPEI_COVER=true yupei-powerkey; sleep 2; done ) &
     exec gnome-shell --headless --virtual-monitor 3200x2136@$YUPEI_REFRESH --no-x11
 '

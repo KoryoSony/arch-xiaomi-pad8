@@ -1,8 +1,9 @@
 #!/bin/sh
-# Native GNOME: power key tap. Locked + blanked -> wake to the lock screen;
-# otherwise lock (GNOME blanks the screen after locking).
-S="--session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver"
-case $(gdbus call $S --method org.gnome.ScreenSaver.GetActive 2>/dev/null) in
-    *true*) gdbus call $S --method org.gnome.ScreenSaver.SetActive false >/dev/null ;;
-    *)      gdbus call $S --method org.gnome.ScreenSaver.Lock >/dev/null ;;
+# Native GNOME: power key tap (from yupei-powerkey). $1 = panel state before
+# the press. Panel was on -> lock and switch it off; was off -> the press
+# already woke it (mutter wakes on any key), make sure it stays on.
+. /usr/lib/yupei/screen-power
+case $1 in
+    off) panel_power on ;;
+    *)   lock_and_blank ;;
 esac
