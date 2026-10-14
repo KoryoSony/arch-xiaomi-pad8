@@ -56,7 +56,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-desktop yupei-touchd yupei-wifi
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-desktop yupei-touchd yupei-wifi yupei-boot-success
     dconf update 2>/dev/null || true
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target serial-getty@hvc0.service
     pacman -Scc --noconfirm
@@ -68,6 +68,11 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
 
 # GPU: Mesa with Turnip on KGSL + Zink (mesa/build-mesa.sh), if built.
 [ -f "$OUT/mesa-yupei.tar.zst" ] && zstd -dc "$OUT/mesa-yupei.tar.zst" | tar -C "$ROOTFS" -xf -
+
+# On-device helpers (tools/build-tools.sh, qbootctl/build-qbootctl.sh), if built.
+for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl; do
+    [ -f "$OUT/$t" ] && install -Dm755 "$OUT/$t" "$ROOTFS/usr/local/bin/$t"
+done
 
 # Kernel: our GKI modules + stock vendor modules (first stage and vendor_dlkm).
 m=$ROOTFS/usr/lib/modules/$KVER

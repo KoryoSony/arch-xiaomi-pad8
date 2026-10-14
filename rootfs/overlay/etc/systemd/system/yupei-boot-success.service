@@ -1,0 +1,13 @@
+[Unit]
+Description=Mark this A/B boot slot successful (else the bootloader stops booting it)
+# Android's boot control does this after each boot; without it every Arch boot
+# uses one of the slot's 7 retries, then the bootloader stays in fastboot.
+After=local-fs.target
+ConditionPathExists=/usr/local/bin/qbootctl
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/qbootctl -m
+
+[Install]
+WantedBy=multi-user.target
