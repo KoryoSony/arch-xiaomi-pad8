@@ -1,0 +1,79 @@
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+index 5651f40db..59a8cf788 100644
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -15,6 +15,37 @@
+ 
+ #define VERSION "0.1"
+ 
++/* Device address to write into the NVM configuration while it is downloaded,
++ * as Android's Bluetooth HAL does (the address lives in the factory persist
++ * partition, e.g. /mnt/vendor/persist/bluetooth/.bt_nv.bin). The NVM's own
++ * (placeholder) address is still what qca_check_bdaddr() compares against, so
++ * the controller comes up configured. Format: AA:BB:CC:DD:EE:FF.
++ */
++static char *bdaddr;
++module_param(bdaddr, charp, 0644);
++MODULE_PARM_DESC(bdaddr, "Device address to put into the NVM configuration (AA:BB:CC:DD:EE:FF)");
++
++/* Keep the controller awake: don't enable in-band/deep sleep in the NVM.
++ * The WCN7750's Bluetooth core never answered the in-band wake-up, so every
++ * command after ~20 s idle timed out. Pair with hci_uart.qca_ibs=0.
++ */
++static bool nosleep;
++module_param(nosleep, bool, 0644);
++MODULE_PARM_DESC(nosleep, "Disable controller sleep in the NVM configuration");
++
++static bool qca_param_bdaddr(bdaddr_t *ba)
++{
++	unsigned int b[6];
++	int i;
++
++	if (!bdaddr || sscanf(bdaddr, "%2x:%2x:%2x:%2x:%2x:%2x",
++			      &b[5], &b[4], &b[3], &b[2], &b[1], &b[0]) != 6)
++		return false;
++	for (i = 0; i < 6; i++)
++		ba->b[i] = b[i];
++	return bacmp(ba, BDADDR_ANY) != 0;
++}
++
+ int qca_read_soc_version(struct hci_dev *hdev, struct qca_btsoc_version *ver,
+ 			 enum qca_btsoc_type soc_type)
+ {
+@@ -446,6 +477,12 @@ static int qca_tlv_check_data(struct hci_dev *hdev,
+ 					return -EINVAL;
+ 
+ 				memcpy(&config->bdaddr, tlv_nvm->data, sizeof(bdaddr_t));
++				{
++					bdaddr_t ba;
++
++					if (qca_param_bdaddr(&ba))
++						memcpy(tlv_nvm->data, &ba, sizeof(bdaddr_t));
++				}
+ 
+ 				break;
+ 
+@@ -457,7 +494,10 @@ static int qca_tlv_check_data(struct hci_dev *hdev,
+ 				 * enabling software inband sleep
+ 				 * onto controller side.
+ 				 */
+-				tlv_nvm->data[0] |= 0x80;
++				if (nosleep)
++					tlv_nvm->data[0] &= ~0x80;
++				else
++					tlv_nvm->data[0] |= 0x80;
+ 
+ 				/* UART Baud Rate */
+ 				if (soc_type >= QCA_WCN3991)
+@@ -474,7 +514,10 @@ static int qca_tlv_check_data(struct hci_dev *hdev,
+ 				/* Sleep enable mask
+ 				 * enabling deep sleep feature on controller.
+ 				 */
+-				tlv_nvm->data[0] |= 0x01;
++				if (nosleep)
++					tlv_nvm->data[0] &= ~0x01;
++				else
++					tlv_nvm->data[0] |= 0x01;
+ 
+ 				break;
+ 			}

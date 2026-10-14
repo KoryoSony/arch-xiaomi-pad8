@@ -1,0 +1,82 @@
+#!/bin/sh
+# Brings up the WCN7750's Bluetooth core (Qualcomm "Orne", on /dev/ttyHS0).
+# There is no serdev node for it (Android's own stack drives the UART), so it
+# is attached with btattach and our hci_uart/btqca patches (kernel/patches):
+#   hci_uart.qca_soc=wcn7850  - set up like a WCN7850 (same HCI protocol)
+#   btqca.bdaddr=...          - the device address from the factory persist
+#                               partition, written into the NVM config
+#   btqca.nosleep=1, hci_uart.qca_ibs=0 - keep the core awake (no in-band
+#                               sleep handshake)
+#   hci_uart.qca_memdump=0    - no "crash the controller for a dump" on a
+#                               command timeout: on this Wi-Fi/BT combo chip
+#                               that reset the whole tablet
+# The UART (msm_geni_serial) runtime-suspends 150 ms after its last use;
+# Android's HAL holds a clock vote while Bluetooth is on. Here the device is
+# kept active (power/control=on) while the controller is up; otherwise every
+# command after a few seconds of idle timed out. It must be back on "auto"
+# for each attach: reopening the port needs a resume to reinitialise it.
+# Firmware: ornbtfw10.tlv / ornnv10.bin from the bluetooth partition, under
+# the names Linux uses (/lib/firmware/qca/hmtbtfw10.tlv, hmtnv10.bin).
+# Power comes from Xiaomi's btpower driver through the bt_power rfkill. The
+# core keeps its last UART speed over a power toggle (shared rails with
+# Wi-Fi, even over a reboot), so 3 Mbps is tried first, then 115200.
+set -u
+FW=/vendor/bt_firmware/image
+Q=/lib/firmware/qca
+mkdir -p $Q
+ln -sf $FW/ornbtfw10.tlv $Q/hmtbtfw10.tlv
+ln -sf $FW/ornnv10.bin $Q/hmtnv10.bin
+
+addr=$(od -An -tx1 -N6 /mnt/vendor/persist/bluetooth/.bt_nv.bin 2>/dev/null | tr -d ' \n' |
+       sed 's/../&:/g; s/:$//' | tr a-f A-F)
+modprobe btqca
+modprobe hci_uart
+[ -n "$addr" ] && echo "$addr" > /sys/module/btqca/parameters/bdaddr
+echo Y > /sys/module/btqca/parameters/nosleep
+echo wcn7850 > /sys/module/hci_uart/parameters/qca_soc
+echo N > /sys/module/hci_uart/parameters/qca_ibs
+echo N > /sys/module/hci_uart/parameters/qca_memdump
+UART=$(readlink -f /sys/class/tty/ttyHS0/device)
+
+# bt_power is the chip's power switch, and it is a "bluetooth" rfkill: GNOME's
+# Bluetooth toggle (and systemd-rfkill's restored state) block it together
+# with hci0, which powers the chip off. So follow it: attach while it is
+# unblocked, detach when it gets blocked, attach again (fresh firmware load)
+# when it is unblocked.
+BTP=$(for r in /sys/class/rfkill/rfkill*; do [ "$(cat $r/name)" = bt_power ] && echo $r; done | head -1)
+blocked() { [ "$(cat $BTP/soft 2>/dev/null)" = 1 ]; }
+
+attach() {   # power-cycles the chip and attaches; sets $pid
+    for speed in 3000000 115200 3000000 115200; do
+        blocked && return 1
+        echo auto > "$UART/power/control"
+        echo 1 > $BTP/soft; sleep 2; echo 0 > $BTP/soft; sleep 1
+        btattach -B /dev/ttyHS0 -P qca -S $speed &
+        pid=$!
+        for i in $(seq 15); do
+            sleep 1
+            if btmgmt info 2>/dev/null | grep -q '^hci0:'; then
+                echo on > "$UART/power/control"
+                echo "bluetooth-up: hci0 up ($addr, attached at $speed)"
+                return 0
+            fi
+            kill -0 $pid 2>/dev/null || break
+        done
+        kill $pid 2>/dev/null; wait $pid 2>/dev/null
+        echo "bluetooth-up: no controller at $speed, retrying"
+    done
+    return 1
+}
+
+while :; do
+    while blocked; do sleep 1; done
+    if attach; then
+        # up: wait until Bluetooth is switched off or btattach goes away
+        while ! blocked && kill -0 $pid 2>/dev/null; do sleep 1; done
+        echo "bluetooth-up: switched off, detaching"
+        kill $pid 2>/dev/null; wait $pid 2>/dev/null
+        echo auto > "$UART/power/control"
+    else
+        blocked || { echo "bluetooth-up: giving up"; exit 1; }
+    fi
+done

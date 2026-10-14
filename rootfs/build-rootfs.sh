@@ -66,7 +66,7 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     echo xiaomi-pad8 > /etc/hostname
     passwd -l root   # sudo from wheel users instead; SSH as root needs a key
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /tmp/mutter-*.pkg.tar.*

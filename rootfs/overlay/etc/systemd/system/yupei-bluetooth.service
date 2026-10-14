@@ -1,0 +1,13 @@
+[Unit]
+Description=Bring up the WCN7750 Bluetooth controller (UART attach)
+After=yupei-firmware.service yupei-wifi.service systemd-modules-load.service
+Before=bluetooth.service
+Wants=bluetooth.service
+
+[Service]
+ExecStart=/usr/lib/yupei/bluetooth-up
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

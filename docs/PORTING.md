@@ -295,3 +295,20 @@ These are the things that broke the first boots of yupei, in order:
     screen off 40 mA. The panel switches 30-144 Hz modes without flicker
     (an idle-based automatic switcher was tried and removed at the user's
     request; the rate is whatever is set in Settings).
+32. **Bluetooth (WCN7750 "Orne" core on /dev/ttyHS0)**: no serdev node, so
+    `yupei-bluetooth` attaches it with btattach and patched modules
+    (kernel/patches): hci_uart.qca_soc=wcn7850 (same HCI/TLV protocol),
+    btqca.bdaddr= (address from persist bluetooth/.bt_nv.bin written into the
+    NVM while downloading; the NVM's placeholder stays the "unconfigured"
+    reference), btqca.nosleep / hci_uart.qca_ibs=0 (no in-band sleep),
+    hci_uart.qca_memdump=0 (a forced controller crash dump on a timeout reset
+    the whole tablet). Firmware is ORNE 1.0 (ornbtfw10.tlv / ornnv10.bin on
+    the bluetooth partition); Linux derives ROM 1.0 and asks for
+    hmtbtfw10.tlv / hmtnv10.bin, so those names link to it (the hmt*20 files
+    are Hamilton 2.0 and make the chip reset). The msm_geni_serial UART
+    runtime-suspends 150 ms after use (Android holds a clock vote): kept
+    power/control=on while attached, "auto" for each attach (reopening needs
+    a resume). The chip keeps its UART speed over power toggles (rails shared
+    with Wi-Fi): 3 Mbps is tried first, then 115200. bt_power (the chip's
+    power) is a bluetooth rfkill that GNOME's toggle blocks too, so the
+    service detaches on block and re-attaches on unblock.

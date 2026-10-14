@@ -31,6 +31,16 @@ for l in include/linux/mca arch/arm64/boot/dts/vendor Documentation/devicetree/b
     if [ -L "$SRC/$l" ] && [ ! -e "$SRC/$l" ]; then rm "$SRC/$l"; mkdir -p "$SRC/$l"; fi
 done
 
+# Our kernel patches (kernel/patches): Bluetooth on the WCN7750 over a plain
+# UART attach. Applied once; skipped when already in the tree.
+for p in "$TOP"/kernel/patches/*.patch; do
+    if git -C "$SRC" apply --check "$p" 2>/dev/null; then
+        git -C "$SRC" apply "$p"
+    elif ! git -C "$SRC" apply --check -R "$p" 2>/dev/null; then
+        echo "kernel patch does not apply: $p" >&2; exit 1
+    fi
+done
+
 # Toolchain: Google's pinned clang on x86_64 hosts. Elsewhere there is no
 # prebuilt, so use the distro's clang 18 (LLVM_DIR, set by the arm64 image),
 # the same major version r510928 is based on.
