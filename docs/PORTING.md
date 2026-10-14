@@ -268,3 +268,9 @@ These are the things that broke the first boots of yupei, in order:
     scene/mute settings live in Xiaomi's mixer_paths_overlay_static.xml, which
     Xiaomi's Android HAL merges into the mixer paths. Without it only one amp
     played; audioreach/merge-mixer-overlay.py merges it the same way.
+    Stereo layout: the speaker device is 4 TDM slots (PAL map FL FR LB RB);
+    slot 0 = bottom-left, 1 = top-left, 2/3 = right side (landscape). The
+    plugin only filled FL/FR for playback, so the right amps were silent:
+    patched to send the full 4-channel map, and the Speakers sink is 4
+    channels positioned RL FL FR RR with PipeWire's simple upmix (left on
+    both left speakers, right on both right). Not orientation-aware yet.

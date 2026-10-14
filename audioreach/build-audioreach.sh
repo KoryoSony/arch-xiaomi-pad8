@@ -55,6 +55,17 @@ CPPFLAGS="-I$A/kernel/include/uapi" autobuild graphservices --with-syslog --with
 autobuild conf --with-qcom
 autobuild graphmgr --with-glib --with-syslog --with-no-ipc
 autobuild pal --with-glib --with-syslog
+# Playback streams only got FL/FR in their channel map, so a 4-channel sink
+# (the Pad 8's four speaker amps) left slots 2/3 silent: fill in LB/RB as PAL's
+# default 4-channel device map does, so each sink channel reaches one amp.
+grep -q "yupei: 4ch playback map" "$A/pipewire-plugin/src/pw-pal-plugin.c" || perl -0pi -e '
+    s{(        udata->stream_attributes->out_media_config.ch_info.ch_map\[1\] = PAL_CHMAP_CHANNEL_FR;\n)}
+     {$1        if (udata->info.channels >= 4) { /* yupei: 4ch playback map */
+            udata->stream_attributes->out_media_config.ch_info.ch_map[2] = PAL_CHMAP_CHANNEL_LB;
+            udata->stream_attributes->out_media_config.ch_info.ch_map[3] = PAL_CHMAP_CHANNEL_RB;
+        }
+} or die "pw-pal-plugin: playback ch_map not found\n";
+' "$A/pipewire-plugin/src/pw-pal-plugin.c"
 autobuild pipewire-plugin
 
 # Our own PAL sink list replaces it (rootfs/overlay/etc/pipewire/pipewire.conf.d).
