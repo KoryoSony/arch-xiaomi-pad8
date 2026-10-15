@@ -1,0 +1,7 @@
+{
+  "uuid": "xiaomi-pad8@yupei",
+  "name": "Xiaomi Pad 8",
+  "description": "Quick settings for the Xiaomi Pad 8: flashlight, automatic brightness and temperatures.",
+  "shell-version": ["49", "50", "51"],
+  "version": 1
+}

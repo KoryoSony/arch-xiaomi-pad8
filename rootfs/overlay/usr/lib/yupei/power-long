@@ -1,0 +1,8 @@
+#!/bin/sh
+# Power key held (from yupei-powerkey): GNOME's power off / restart dialog.
+# The login screen's shell shows the same dialog for its session manager.
+. /usr/lib/yupei/screen-power
+panel_power on
+as_session gdbus call --session --dest org.gnome.SessionManager \
+    --object-path /org/gnome/SessionManager \
+    --method org.gnome.SessionManager.Shutdown >/dev/null

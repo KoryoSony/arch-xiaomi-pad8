@@ -1,5 +1,0 @@
-# The power key and the magnetic cover are read by yupei-powerkey inside the
-# user's session (lock / screen off / power menu): give the logged-in user
-# access to those two input devices.
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="pmic_pwrkey", TAG+="uaccess"
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="xiaomi-hall", TAG+="uaccess"

@@ -1,0 +1,12 @@
+# GNOME Initial Setup (first boot) on the Xiaomi Pad 8: same as the login
+# screen (gdm.d): 2x scaling, on-screen keyboard, power key via yupei-powerkey.
+[org/gnome/desktop/a11y/applications]
+screen-keyboard-enabled=true
+
+[org/gnome/desktop/interface]
+scaling-factor=uint32 2
+
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='nothing'
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-type='nothing'

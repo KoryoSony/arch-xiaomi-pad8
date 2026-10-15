@@ -1,0 +1,11 @@
+[Unit]
+Description=Status LED: boot breathing and charging indicator
+# Normally already running from the initramfs (then this exits at once).
+DefaultDependencies=no
+After=systemd-modules-load.service
+
+[Service]
+ExecStart=/usr/local/bin/yupei-led
+
+[Install]
+WantedBy=sysinit.target

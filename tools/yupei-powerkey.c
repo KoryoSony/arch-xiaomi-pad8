@@ -1,12 +1,13 @@
-// yupei-powerkey: power button and magnetic cover handling for the GNOME
-// session on yupei. logind is told to ignore both (/etc/systemd/logind.conf.d/
-// yupei.conf); this runs inside the session (/etc/xdg/autostart).
+// yupei-powerkey: power button and magnetic cover handling on yupei. logind
+// is told to ignore both (/etc/systemd/logind.conf.d/yupei.conf); this runs as
+// root (yupei-powerkey.service) and the scripts act on whichever session is
+// on screen: a desktop, the login screen or GNOME Initial Setup.
 //   Power tap:  $YUPEI_POWERKEY_SHORT "on"|"off" (default /usr/lib/yupei/
 //               power-short), with the panel state from *before* the press:
 //               mutter wakes the panel on any key, so asking it after the
 //               press would always say "on" and blank it again.
-//   Power hold (>= 0.7 s): GNOME's power-off dialog
-//               (org.gnome.SessionManager.Shutdown).
+//   Power hold (>= 0.7 s): $YUPEI_POWERKEY_LONG (default /usr/lib/yupei/
+//               power-long: GNOME's power-off dialog).
 //   Cover (xiaomi-hall SW_LID): $YUPEI_COVER close|open (default
 //               /usr/lib/yupei/cover).
 // Build: gcc -O2 -static -o yupei-powerkey yupei-powerkey.c
@@ -89,6 +90,7 @@ int main(void)
 	if (p[0].fd < 0 && p[1].fd < 0)
 		return 1;
 	const char *short_cmd = env_or("YUPEI_POWERKEY_SHORT", "/usr/lib/yupei/power-short");
+	const char *long_cmd = env_or("YUPEI_POWERKEY_LONG", "/usr/lib/yupei/power-long");
 	const char *cover_cmd = env_or("YUPEI_COVER", "/usr/lib/yupei/cover");
 	signal(SIGCHLD, SIG_IGN);
 	long down = -1;
@@ -103,9 +105,7 @@ int main(void)
 		int r = poll(p, 2, timeout);
 		if (r == 0 && down >= 0 && !long_fired) {   // held long enough
 			long_fired = 1;
-			spawn("gdbus call --session --dest org.gnome.SessionManager "
-			      "--object-path /org/gnome/SessionManager "
-			      "--method org.gnome.SessionManager.Shutdown >/dev/null", NULL);
+			spawn(long_cmd, NULL);
 			continue;
 		}
 		for (int i = 0; i < 2; i++) {

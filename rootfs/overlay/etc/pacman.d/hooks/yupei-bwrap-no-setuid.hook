@@ -1,0 +1,14 @@
+# bubblewrap 0.11+ refuses to run setuid ("setuid use of bubblewrap is not
+# supported"). Keep it unprivileged: it then fails cleanly for lack of user
+# namespaces, and GNOME's image loader (glycin) detects that and loads images
+# without a sandbox. A setuid bwrap made every icon and picture fail to load.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = bubblewrap
+
+[Action]
+Description = Keeping bubblewrap unprivileged (no user namespaces on this kernel)...
+When = PostTransaction
+Exec = /usr/bin/chmod u-s /usr/bin/bwrap

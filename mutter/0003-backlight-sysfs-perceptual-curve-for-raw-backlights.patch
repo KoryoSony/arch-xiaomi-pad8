@@ -1,0 +1,128 @@
+diff --git a/src/backends/meta-backlight-sysfs.c b/src/backends/meta-backlight-sysfs.c
+index 22050e4fac..1db9d1c519 100644
+--- a/src/backends/meta-backlight-sysfs.c
++++ b/src/backends/meta-backlight-sysfs.c
+@@ -20,6 +20,7 @@
+ #include "backends/meta-backlight-sysfs-private.h"
+ 
+ #include <glib.h>
++#include <math.h>
+ 
+ #include "backends/meta-backend-private.h"
+ #include "backends/meta-launcher.h"
+@@ -37,8 +38,49 @@ struct _MetaBacklightSysfs
+   char *device_name;
+   char *device_path;
+   char *brightness_path;
++
++  /* Perceptual brightness curve (see to_raw ()); FALSE: linear raw values. */
++  gboolean curve;
++  int raw_min, raw_max;
+ };
+ 
++/* Raw backlights with many steps (e.g. 4096 on the Xiaomi Pad 8) are linear
++ * in light output, but perceived brightness is not: a linear slider puts all
++ * the visible change into its first few percent. Expose CURVE_STEPS levels
++ * instead and map them with a gamma curve, like phones do. */
++#define CURVE_STEPS 1000
++#define CURVE_GAMMA 2.2
++
++static int
++to_raw (MetaBacklightSysfs *backlight,
++        int                 brightness)
++{
++  double x;
++
++  if (!backlight->curve)
++    return brightness;
++
++  x = CLAMP (brightness, 0, CURVE_STEPS) / (double) CURVE_STEPS;
++  return backlight->raw_min +
++         (int) ((backlight->raw_max - backlight->raw_min) *
++                pow (x, CURVE_GAMMA) + 0.5);
++}
++
++static int
++from_raw (MetaBacklightSysfs *backlight,
++          int                 raw)
++{
++  double x;
++
++  if (!backlight->curve)
++    return raw;
++
++  x = (raw - backlight->raw_min) /
++      (double) (backlight->raw_max - backlight->raw_min);
++  x = CLAMP (x, 0.0, 1.0);
++  return (int) (CURVE_STEPS * pow (x, 1.0 / CURVE_GAMMA) + 0.5);
++}
++
+ G_DEFINE_FINAL_TYPE (MetaBacklightSysfs,
+                      meta_backlight_sysfs,
+                      META_TYPE_BACKLIGHT)
+@@ -58,7 +100,7 @@ meta_backlight_sysfs_update (MetaBacklightSysfs *backlight)
+       return;
+     }
+ 
+-  brightness_raw = g_ascii_strtoll (contents, NULL, 0);
++  brightness_raw = from_raw (backlight, g_ascii_strtoll (contents, NULL, 0));
+ 
+   meta_backlight_get_brightness_info (META_BACKLIGHT (backlight),
+                                       &brightness_min, &brightness_max);
+@@ -106,7 +148,7 @@ meta_backlight_sysfs_set_brightness_helper (MetaBacklightSysfs *backlight_sysfs,
+   g_autoptr (GError) error = NULL;
+   GCancellable *cancellable = g_task_get_cancellable (task);
+ 
+-  brightness_str = g_strdup_printf ("%d", brightness);
++  brightness_str = g_strdup_printf ("%d", to_raw (backlight_sysfs, brightness));
+ 
+   proc = g_subprocess_new (G_SUBPROCESS_FLAGS_STDOUT_SILENCE,
+                            &error,
+@@ -167,7 +209,8 @@ meta_backlight_sysfs_set_brightness (MetaBacklight       *backlight,
+       meta_dbus_login1_session_call_set_brightness (backlight_sysfs->session_proxy,
+                                                     "backlight",
+                                                     backlight_sysfs->device_name,
+-                                                    brightness_target,
++                                                    to_raw (backlight_sysfs,
++                                                            brightness_target),
+                                                     cancellable,
+                                                     on_login1_brightness_set,
+                                                     g_steal_pointer (&task));
+@@ -311,7 +354,8 @@ meta_backlight_sysfs_new (MetaBackend           *backend,
+   g_autofree char *device_name = NULL;
+   g_autofree char *device_path = NULL;
+   gboolean is_internal;
+-  int min, max;
++  int min, max, raw_min = 0, raw_max = 0;
++  gboolean curve = FALSE;
+ 
+   is_internal = meta_output_info_is_builtin (output_info);
+ 
+@@ -328,6 +372,17 @@ meta_backlight_sysfs_new (MetaBackend           *backend,
+   if (!get_backlight_info (backlight_device, &min, &max, error))
+     return NULL;
+ 
++  if (max >= 4 * CURVE_STEPS &&
++      g_strcmp0 (g_udev_device_get_sysfs_attr (backlight_device, "type"),
++                 "raw") == 0)
++    {
++      curve = TRUE;
++      raw_min = MAX (1, max / 400);
++      raw_max = max;
++      min = 0;
++      max = CURVE_STEPS;
++    }
++
+   device_name = g_strdup (g_udev_device_get_name (backlight_device));
+ 
+   device_path =
+@@ -356,6 +411,9 @@ meta_backlight_sysfs_new (MetaBackend           *backend,
+   backlight->device_name = g_steal_pointer (&device_name);
+   backlight->device_path = g_steal_pointer (&device_path);
+   backlight->brightness_path = g_steal_pointer (&brightness_path);
++  backlight->curve = curve;
++  backlight->raw_min = raw_min;
++  backlight->raw_max = raw_max;
+ 
+   g_signal_connect_object (udev, "backlight-changed",
+                            G_CALLBACK (on_backlight_changed), backlight, 0);

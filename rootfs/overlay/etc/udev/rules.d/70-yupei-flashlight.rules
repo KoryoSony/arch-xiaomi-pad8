@@ -1,0 +1,4 @@
+# Flashlight: both diodes' torch currents and the switch that drives them
+# (led:switch_2), writable for the GNOME quick settings toggle
+# (/usr/share/gnome-shell/extensions/xiaomi-pad8@yupei) and the flashlight command.
+SUBSYSTEM=="leds", KERNEL=="led:torch_0|led:torch_1|led:switch_2", RUN+="/bin/chmod 0666 /sys%p/brightness"

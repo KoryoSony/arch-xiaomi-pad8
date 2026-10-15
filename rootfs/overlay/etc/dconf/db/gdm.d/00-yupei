@@ -1,3 +1,14 @@
 # Login screen on a touch tablet: show the on-screen keyboard for text fields.
 [org/gnome/desktop/a11y/applications]
 screen-keyboard-enabled=true
+
+# 3200x2136 on an 11" panel: 2x scaling (the user sessions get it from
+# local.d; without it the login screen is tiny).
+[org/gnome/desktop/interface]
+scaling-factor=uint32 2
+
+# Power key: yupei-powerkey (screen off/on, hold = power off dialog).
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='nothing'
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-type='nothing'

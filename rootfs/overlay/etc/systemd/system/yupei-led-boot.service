@@ -1,0 +1,11 @@
+[Unit]
+Description=Status LED: boot finished (white fades to green, then off)
+After=graphical.target multi-user.target gdm.service
+
+[Service]
+Type=oneshot
+# Give the login screen a moment to appear first.
+ExecStart=/bin/sh -c 'sleep 2; pkill -USR1 -x yupei-led || true'
+
+[Install]
+WantedBy=graphical.target multi-user.target

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Xiaomi Pad 8 flashlight (both diodes): flashlight on | off | toggle | status
+L=/sys/class/leds
+MA=${FLASHLIGHT_MA:-150}   # per diode, max 400
+on()  { echo "$MA" > $L/led:torch_0/brightness; echo "$MA" > $L/led:torch_1/brightness; echo 1 > $L/led:switch_2/brightness; }
+off() { echo 0 > $L/led:switch_2/brightness; echo 0 > $L/led:torch_0/brightness; echo 0 > $L/led:torch_1/brightness; }
+state() { [ "$(cat $L/led:switch_2/brightness)" = 1 ] && echo on || echo off; }
+case ${1:-toggle} in
+    on) on ;; off) off ;;
+    toggle) [ "$(state)" = on ] && off || on ;;
+    status) state ;;
+    *) echo "usage: flashlight on|off|toggle|status" >&2; exit 2 ;;
+esac

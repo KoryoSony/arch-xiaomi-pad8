@@ -1,8 +1,29 @@
-# Sourced by power-short and cover: panel power through mutter, which owns the
-# display (org.gnome.Mutter.DisplayConfig PowerSaveMode: 0 = on, 3 = off).
+# Sourced by power-short, power-long and cover (run as root by
+# yupei-powerkey.service): act on the session that is on screen, whether it is
+# a user's desktop, the login screen or GNOME Initial Setup.
+
+# The active session on seat0: SID, its user (SUSER, SUID) and class.
+SID=$(loginctl show-seat seat0 -p ActiveSession --value 2>/dev/null)
+SUSER= SUID= SCLASS=
+if [ -n "$SID" ]; then
+    SUSER=$(loginctl show-session "$SID" -p Name --value)
+    SUID=$(loginctl show-session "$SID" -p User --value)
+    SCLASS=$(loginctl show-session "$SID" -p Class --value)
+fi
+
+# Run a command on that session's D-Bus session bus, as its user.
+as_session() {
+    [ -n "$SUID" ] && [ -S "/run/user/$SUID/bus" ] || return 1
+    setpriv --reuid="$SUID" --regid="$(id -g "$SUSER")" --init-groups \
+        env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$SUID/bus" \
+            XDG_RUNTIME_DIR="/run/user/$SUID" "$@"
+}
+
+# Panel power through mutter, which owns the display
+# (org.gnome.Mutter.DisplayConfig PowerSaveMode: 0 = on, 3 = off).
 panel_power() {
     case $1 in on) m=0 ;; *) m=3 ;; esac
-    gdbus call --session --dest org.gnome.Mutter.DisplayConfig \
+    as_session gdbus call --session --dest org.gnome.Mutter.DisplayConfig \
         --object-path /org/gnome/Mutter/DisplayConfig \
         --method org.freedesktop.DBus.Properties.Set \
         org.gnome.Mutter.DisplayConfig PowerSaveMode "<int32 $m>" >/dev/null
@@ -10,8 +31,11 @@ panel_power() {
 
 lock_and_blank() {
     # Lock through logind: GNOME Shell then locks at once, without the
-    # slide-in animation that org.gnome.ScreenSaver.Lock plays. Then panel off.
-    loginctl lock-session
-    sleep 0.15
+    # slide-in animation that org.gnome.ScreenSaver.Lock plays. The login
+    # screen and Initial Setup have nothing to lock: just switch off.
+    if [ "$SCLASS" = user ] && [ "$SUSER" != gnome-initial-setup ]; then
+        loginctl lock-session "$SID"
+        sleep 0.15
+    fi
     panel_power off
 }

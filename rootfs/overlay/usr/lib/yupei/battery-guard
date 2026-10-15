@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Battery reporting fixes and over-discharge protection for the Xiaomi MCA
 # charger/fuel-gauge drivers (percentage and voltage every 5 s):
 #  - Percentage: MCA's displayed SOC (UISOC) is re-estimated from voltage at
@@ -14,6 +14,8 @@
 #  - Over-discharge: nothing on Linux acted on MCA's critical level and the
 #    battery once ran down to 2.5 V (Android stops at 3.25 V). Power off when
 #    it stays below CUTOFF_MV for a minute.
+# Battery life: this runs all the time, so it reads files with the shell's
+# read builtin and sleeps on a FIFO read timeout: no process starts per tick.
 FG=/sys/class/xm_power/fg_master
 SFG=/sys/class/xm_power/fuelgauge/strategy_fg
 BAT=/sys/class/power_supply/battery
@@ -22,10 +24,15 @@ CUTOFF_MV=${CUTOFF_MV:-3300}
 WARN_MV=${WARN_MV:-3450}
 mkdir -p "${CUR%/*}"
 [ -e $CUR ] || echo 0 > $CUR
+get() { read -r "$1" < "$2" 2>/dev/null; }      # get VAR FILE
+rm -f /run/yupei/battery/tick; mkfifo /run/yupei/battery/tick
+exec 9<> /run/yupei/battery/tick
+nap() { read -r -t "$1" -u 9 _; }                 # sleep without a fork
 low=0 warned=0 tick=0 last_status=
 while :; do
-    st=$(cat $BAT/status 2>/dev/null)
-    c=$(cat $BAT/current_now 2>/dev/null) || c=0
+    st= c=0
+    get st $BAT/status
+    get c $BAT/current_now
     c=${c#-}
     case $st in Charging) ;; *) c=-$c ;; esac
     echo $c > $CUR   # in place: the file is bind-mounted
@@ -34,19 +41,21 @@ while :; do
         last_status=$st
     fi
     tick=$((tick + 1))
-    [ $tick -lt 5 ] && { sleep 1; continue; }
+    [ $tick -lt 3 ] && { nap 2; continue; }
     tick=0
 
-    raw=$(cat $SFG/raw_soc 2>/dev/null)
+    raw= fake= mv= rsoc=
+    get raw $SFG/raw_soc
     if [ -n "$raw" ] && [ "$raw" -ge 0 ]; then
         soc=$(( (raw + 50) / 100 ))
         [ $soc -gt 100 ] && soc=100
         [ "$st" = Full ] && soc=100
-        [ "$(cat $SFG/fake_soc 2>/dev/null)" = $soc ] || echo $soc > $SFG/fake_soc
+        get fake $SFG/fake_soc
+        [ "$fake" = $soc ] || echo $soc > $SFG/fake_soc
     fi
 
-    mv=$(cat $FG/vbatt 2>/dev/null) || { sleep 1; continue; }
-    rsoc=$(cat $FG/rsoc 2>/dev/null)
+    get mv $FG/vbatt || { nap 2; continue; }
+    get rsoc $FG/rsoc
     if [ "$mv" -lt "$CUTOFF_MV" ] || { [ "$rsoc" = 0 ] && [ "$mv" -lt 3400 ]; }; then
         low=$((low + 1))
     else
@@ -59,10 +68,10 @@ while :; do
     elif [ "$mv" -gt $((WARN_MV + 100)) ]; then
         warned=0
     fi
-    if [ $low -ge 12 ]; then
+    if [ $low -ge 10 ]; then
         echo "battery-guard: ${mv} mV, ${rsoc}%: powering off to protect the battery"
         systemctl poweroff
         exit 0
     fi
-    sleep 1
+    nap 2
 done

@@ -1,0 +1,3 @@
+user-db:user
+system-db:gnome-initial-setup
+file-db:/usr/share/gnome-initial-setup/initial-setup-dconf-defaults

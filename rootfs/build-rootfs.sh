@@ -68,15 +68,25 @@ arch-chroot "$ROOTFS" /bin/bash -euxc "
     pacman -Rdd --noconfirm linux-aarch64 || true
     pacman -Syu --noconfirm --needed ${packages[*]}
     echo xiaomi-pad8 > /etc/hostname
+    # Languages GNOME Initial Setup offers (it lists the generated locales);
+    # without any, everything runs in the C locale.
+    for l in en_US en_GB de_DE es_ES fr_FR it_IT pt_BR pt_PT nl_NL pl_PL ru_RU uk_UA tr_TR \
+             zh_CN zh_TW ja_JP ko_KR hy_AM ka_GE ar_EG hi_IN; do
+        sed -i \"s/^#\\(\$l.UTF-8 UTF-8\\)/\\1/\" /etc/locale.gen
+    done
+    locale-gen
+    echo LANG=en_US.UTF-8 > /etc/locale.conf
+    # bubblewrap must not be setuid (see the yupei-bwrap-no-setuid hook).
+    chmod u-s /usr/bin/bwrap 2>/dev/null || true
     passwd -l root   # sudo from wheel users instead; SSH as root needs a key
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth yupei-sensorspd
+    systemctl enable NetworkManager sshd systemd-networkd yupei-firmware yupei-usb-gadget yupei-usb-role yupei-cpuinfo yupei-touchd yupei-wifi yupei-boot-success yupei-battery-guard yupei-pd-mapper yupei-audiopd yupei-dsp yupei-power-tuning yupei-bluetooth bluetooth yupei-sensorspd yupei-led yupei-led-boot yupei-led-fail
     if [ $DESKTOP = gnome ]; then
         # Our mutter (split scanout + 8 bpc for this panel), kept over updates.
         pacman -U --noconfirm /var/cache/yupei-pkgs/mutter-*.pkg.tar.* /var/cache/yupei-pkgs/ffmpeg-*.pkg.tar.*
         rm -f /var/cache/yupei-pkgs/mutter-*.pkg.tar.* /var/cache/yupei-pkgs/ffmpeg-*.pkg.tar.*
         sed -i 's/^#\\?IgnorePkg *=.*/IgnorePkg = mutter mutter-devkit ffmpeg/' /etc/pacman.conf /etc/pacman.conf.orig
-        systemctl enable gdm yupei-display-quirks yupei-shell-overlays
+        systemctl enable gdm yupei-display-quirks yupei-shell-overlays yupei-powerkey
         systemctl set-default graphical.target
     fi
     dconf update 2>/dev/null || true
@@ -109,7 +119,7 @@ install -Dm644 "$STOCK/vendor/bin/init.kernel.post_boot-tuna_default_2_3_2_1.sh"
     "$ROOTFS/usr/lib/yupei/vendor/init.kernel.post_boot-tuna_default_2_3_2_1.sh"
 
 # On-device helpers (tools/build-tools.sh, qbootctl/build-qbootctl.sh), if built.
-for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-present yupei-present-gnome qbootctl pd-mapper qrtr-lookup; do
+for t in kmstest kmsatomic kmsprops thp-capture yupei-touchd yupei-powerkey yupei-bootlog yupei-led yupei-present yupei-present-gnome qbootctl pd-mapper qrtr-lookup; do
     [ -f "$OUT/$t" ] && install -Dm755 "$OUT/$t" "$ROOTFS/usr/local/bin/$t"
 done
 
@@ -144,6 +154,10 @@ cp -a "$STOCK/odm/firmware/." "$ROOTFS/usr/lib/firmware/"
 mkdir -p "$ROOTFS"/vendor/{firmware_mnt,dsp,bt_firmware,etc} "$ROOTFS/mnt/vendor/persist"
 # Wi-Fi driver config: firmware/wlan/qca_cld/*/WCNSS_qcom_cfg.ini links here.
 cp -a "$STOCK/vendor/etc/wifi" "$ROOTFS/vendor/etc/"
+
+# Libraries unpacked above (FastRPC, AudioReach in /usr/local/lib): into the
+# loader cache, or the DSP daemons fail to find them early in the first boot.
+ldconfig -r "$ROOTFS"
 
 # Pack as a sparse ext4 image for "fastboot flash userdata".
 raw=$WORK/rootfs.img

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Power key and cover (Xiaomi Pad 8)
-Comment=Power tap: lock + screen off / wake. Hold: power off dialog. Cover: lock / wake.
-Exec=/usr/local/bin/yupei-powerkey
-OnlyShowIn=GNOME;
-NoDisplay=true
-X-GNOME-Autostart-Phase=Application

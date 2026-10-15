@@ -44,7 +44,7 @@ UART=$(readlink -f /sys/class/tty/ttyHS0/device)
 # unblocked, detach when it gets blocked, attach again (fresh firmware load)
 # when it is unblocked.
 BTP=$(for r in /sys/class/rfkill/rfkill*; do [ "$(cat $r/name)" = bt_power ] && echo $r; done | head -1)
-blocked() { [ "$(cat $BTP/soft 2>/dev/null)" = 1 ]; }
+blocked() { local v; read -r v < $BTP/soft 2>/dev/null; [ "$v" = 1 ]; }
 
 attach() {   # power-cycles the chip and attaches; sets $pid
     for speed in 3000000 115200 3000000 115200; do
@@ -69,10 +69,10 @@ attach() {   # power-cycles the chip and attaches; sets $pid
 }
 
 while :; do
-    while blocked; do sleep 1; done
+    while blocked; do sleep 3; done
     if attach; then
         # up: wait until Bluetooth is switched off or btattach goes away
-        while ! blocked && kill -0 $pid 2>/dev/null; do sleep 1; done
+        while ! blocked && kill -0 $pid 2>/dev/null; do sleep 3; done
         echo "bluetooth-up: switched off, detaching"
         kill $pid 2>/dev/null; wait $pid 2>/dev/null
         echo auto > "$UART/power/control"
