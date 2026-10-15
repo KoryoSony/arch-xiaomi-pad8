@@ -341,3 +341,35 @@ These are the things that broke the first boots of yupei, in order:
     `firefox-hw-video on` writes a /usr/local firefox.desktop that sets
     MOZ_DISABLE_RDD_SANDBOX=1 (security trade-off, documented in the README).
     Other players use system FFmpeg/GStreamer without a sandbox.
+36. **Missing icons / pictures**: bubblewrap 0.11+ refuses to run setuid
+    ("setuid use of bubblewrap is not supported"), and glycin (GNOME's image
+    loader, used by gdk-pixbuf 2.44 for everything) didn't recognise that
+    error, so every icon and picture failed ("Loader process exited early").
+    GLYCIN_DISABLE_SANDBOX is ignored by glycin 2.2. Unprivileged bwrap fails
+    with "Creating new namespace failed", which glycin does recognise: it
+    then loads without a sandbox. A pacman hook keeps bwrap non-setuid.
+    Same root cause (no user namespaces on GKI): colord and
+    malcontent-timerd failed with 217/USER until a global service.d drop-in
+    set PrivateUsers=no.
+37. **Login screen / Initial Setup tiny, power key dead there**: the 2x
+    scaling-factor and power-button-action lived in the user dconf db only.
+    GDM's greeter reads system-db:gdm, Initial Setup (running as gdm-greeter)
+    its own profile: both now get them. yupei-powerkey moved from the
+    session autostart to a root service acting on the active seat0 session
+    (loginctl show-seat, its bus at /run/user/UID/bus).
+38. **Brightness**: the panel backlight is 4096 raw linear steps; mutter maps
+    its slider linearly, so everything above ~20 % looked the same. mutter
+    patch 0003 exposes 1000 levels with a gamma 2.2 curve for raw backlights
+    with >= 4000 steps (lowest raw level max/400).
+39. **Status LED**: the PMIC LPG red/green/blue LEDs have no hardware
+    breathing here (hw_pattern rejects every pattern: no LUT/SDAM in the DT),
+    so yupei-led animates them at 30 fps. Xiaomi's LPG driver logs every
+    brightness write at KERN_ERR ("LPG calc_duty"), hence journald
+    ReadKMsg=no. The initramfs starts it (and the splash); after switch_root
+    such processes keep the initramfs as their root, where /sys, /dev and
+    /proc are empty: they chroot to /proc/1/root through a /proc fd opened
+    early.
+40. **Flashlight**: two diodes; led:torch_0/1 set the current (mA, max 400),
+    led:switch_2 drives both (switch_0 only one). The current must be set
+    again before every switch-on.
+

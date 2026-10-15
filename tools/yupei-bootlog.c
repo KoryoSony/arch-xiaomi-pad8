@@ -309,6 +309,24 @@ static void splash_frame(int idx, double t)
 
 /* ------------------------------------------------------------ Volume Up */
 
+// Started from the initramfs, this process keeps the initramfs as its root
+// after switch_root, where /sys, /dev and /proc are now empty directories
+// (they were moved into the new root). Follow PID 1 into its root instead,
+// through a /proc handle opened at start. Harmless before switch_root.
+static int procfd = -1;
+
+static void follow_root(void)
+{
+	if (procfd < 0)
+		return;
+	int r = openat(procfd, "1/root", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (r < 0)
+		return;
+	if (fchdir(r) == 0 && chroot(".") == 0)
+		chdir("/");
+	close(r);
+}
+
 #define MAXIN 16
 static int infd[MAXIN], nin;
 
@@ -325,6 +343,7 @@ static void scan_inputs(void)
 	for (int i = 0; i < nin; i++)
 		close(infd[i]);
 	nin = 0;
+	follow_root();   // after switch_root, /dev is in the new root
 	DIR *d = opendir("/dev/input");
 	struct dirent *e;
 	while (d && (e = readdir(d)) && nin < MAXIN) {
@@ -380,6 +399,7 @@ int main(int argc, char **argv)
 		usleep(100000);
 	}
 	int kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+	procfd = open("/proc", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 	char rec[2048];
 	struct timespec last = {0};
 	int dirty = 1, splash = !verbose;

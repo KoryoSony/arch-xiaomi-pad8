@@ -37,6 +37,24 @@
 
 enum state { BOOT, BOOT_OK, BOOT_FAIL, IDLE };
 
+// Started from the initramfs, this process keeps the initramfs as its root
+// after switch_root, where /sys, /dev and /proc are now empty directories
+// (they were moved into the new root). Follow PID 1 into its root instead,
+// through a /proc handle opened at start. Harmless before switch_root.
+static int procfd = -1;
+
+static void follow_root(void)
+{
+	if (procfd < 0)
+		return;
+	int r = openat(procfd, "1/root", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (r < 0)
+		return;
+	if (fchdir(r) == 0 && chroot(".") == 0)
+		chdir("/");
+	close(r);
+}
+
 static int fd[3] = { -1, -1, -1 };
 static int last[3] = { -1, -1, -1 };
 static volatile sig_atomic_t got_ok, got_fail, quit;
@@ -120,6 +138,8 @@ static int charge_state(int *capacity)
 		close(f);
 	}
 	*capacity = read_int(BAT "capacity", 50);
+	if (f < 0 && access(BAT, F_OK) < 0)
+		follow_root();   // no battery here yet: after switch_root?
 	if (!strncmp(s, "Charging", 8))
 		return *capacity >= 100 ? 2 : 1;
 	if (!strncmp(s, "Full", 4))
@@ -165,6 +185,7 @@ int main(int argc, char **argv)
 	enum state st = argc > 1 && !strcmp(argv[1], "--no-boot") ? IDLE : BOOT;
 	if (single_instance() < 0)
 		return 0;   // already running (started by the initramfs)
+	procfd = open("/proc", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 	struct sigaction sa = { .sa_handler = on_sig };
 	sigaction(SIGUSR1, &sa, NULL);
 	sigaction(SIGUSR2, &sa, NULL);

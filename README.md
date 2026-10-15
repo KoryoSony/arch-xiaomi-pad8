@@ -35,7 +35,7 @@ on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
 |---|---|---|
 | ✅ | **Display** | 3200×2136 native panel, 30–144 Hz, patched mutter (split scanout for the dual-DSI panel) |
 | ✅ | **GPU** | Adreno 825: Mesa Turnip (Vulkan 1.4) + Zink (OpenGL 4.6 / GLES 3.2), GNOME and Firefox render on the GPU |
-| ✅ | **GNOME desktop** | GDM login, lock screen (one-finger swipe), power menu, auto-rotation |
+| ✅ | **GNOME desktop** | GDM login, lock screen (one-finger swipe), power menu, auto-rotation, Arch boot splash |
 | ✅ | **Touchscreen** | Custom decoder for the Xiaomi THP raw frames (`yupei-touchd`), 10-finger multi-touch, 120 Hz |
 | ✅ | **Wi-Fi** | WCN7750, NetworkManager, Wi-Fi Direct capable |
 | ✅ | **Bluetooth** | WCN7750 Bluetooth core over UART (patched `hci_qca`), real device address |
@@ -43,8 +43,12 @@ on Xiaomi's 2025 tablet, built on the vendor's own GKI kernel.
 | ✅ | **Microphones** | Through the same AudioReach stack (echo cancellation not yet) |
 | ✅ | **Hardware video decoding** | H.264 / HEVC / VP9 on the Iris3 decoder (mpv, GStreamer/FFmpeg apps). Firefox: opt-in, see *Tips* |
 | ✅ | **Battery & charging** | Real percentage, fast charging (QC 3.5), low-battery shutdown protection |
+| ✅ | **Status LED** | Breathes white while booting, then green and off; while charging it breathes from red (low) to green (full) |
+| ✅ | **Flashlight** | Both diodes, from a quick settings tile or the `flashlight` command |
+| ✅ | **Brightness** | Smooth slider (perceptual curve), automatic brightness from the light sensor (quick settings tile) |
+| ✅ | **Temperatures** | CPU, GPU, battery, charger, display and case, in a quick settings tile |
 | ✅ | **Sensors** | Accelerometer (rotation), ambient light, proximity, compass (Qualcomm SSC) |
-| ✅ | **Power button & cover** | Tap = lock + screen off, hold = power menu, magnetic cover locks/wakes |
+| ✅ | **Power button & cover** | Tap = lock + screen off, hold = power menu (also on the login and first-setup screens), magnetic cover locks/wakes |
 | ✅ | **Volume keys** | |
 | ✅ | **USB-C** | Host and device mode, USB networking for SSH |
 | ✅ | **Power management** | Qualcomm's own CPU/bus tuning (walt, deep idle): ~40 mA with the screen off |
@@ -127,7 +131,11 @@ cable the tablet is also a network adapter: `ssh alarm@172.16.42.1`
   less safe. For YouTube also install the *h264ify* extension.
 - **Battery:** the backlight is the biggest consumer; 60 Hz instead of 120/144 Hz
   saves ~180 mA. Lock with the power button when you put it down.
-- **Rotation lock:** in GNOME's quick settings.
+- **Rotation lock, flashlight, auto brightness, temperatures:** in GNOME's
+  quick settings (swipe down from the top-right corner).
+- **Boot messages:** hold **Volume Up** while the Arch logo is showing, or
+  create `/etc/yupei/verbose-boot` to always see them.
+- **Bluetooth** starts switched off to save battery; turn it on in quick settings.
 
 ## Building it yourself
 

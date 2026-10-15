@@ -33,9 +33,9 @@ lock_and_blank() {
     # Lock through logind: GNOME Shell then locks at once, without the
     # slide-in animation that org.gnome.ScreenSaver.Lock plays. The login
     # screen and Initial Setup have nothing to lock: just switch off.
-    if [ "$SCLASS" = user ] && [ "$SUSER" != gnome-initial-setup ]; then
-        loginctl lock-session "$SID"
-        sleep 0.15
-    fi
+    case $SCLASS:$SUSER in
+        user:gdm*|user:gnome-initial-setup) ;;   # Initial Setup runs as gdm-greeter
+        user:*) loginctl lock-session "$SID"; sleep 0.15 ;;
+    esac
     panel_power off
 }
